@@ -558,6 +558,7 @@ const StyleStep = ({ onNext, onBack }: { onNext: (genre: string, tempo: number, 
   const [personaId, setPersonaId] = React.useState('persona_123');
   const [uploadUrl, setUploadUrl] = React.useState('');
   const [isUploading, setIsUploading] = React.useState(false);
+  const [showAudioUpload, setShowAudioUpload] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -600,41 +601,61 @@ const StyleStep = ({ onNext, onBack }: { onNext: (genre: string, tempo: number, 
       </header>
 
       <div className="space-y-12">
-        <section className="glass-card p-8 rounded-xl border border-outline-variant/15">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant">Referencia de Estilo (Audio)</h3>
-              <p className="text-xs text-on-surface-variant mt-1">Sube un archivo de audio para que la IA use su estilo como base.</p>
-            </div>
-            <FileAudio className="text-secondary" size={24} />
-          </div>
-          <div className="flex flex-col items-center justify-center border-2 border-dashed border-outline-variant/30 rounded-2xl p-8 hover:border-secondary/50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-            <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="audio/*" />
-            {isUploading ? (
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-8 h-8 border-2 border-secondary border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-sm font-body text-on-surface-variant">Subiendo audio de referencia...</p>
+        <div className="flex justify-center">
+          {!showAudioUpload && !uploadUrl ? (
+            <button 
+              onClick={() => setShowAudioUpload(true)}
+              className="group flex items-center gap-3 px-8 py-5 rounded-2xl bg-surface-container border border-outline-variant/20 hover:border-secondary/50 hover:bg-surface-bright transition-all"
+            >
+              <div className="p-2 rounded-lg bg-secondary/10 text-secondary group-hover:scale-110 transition-transform">
+                <FileAudio size={20} />
               </div>
-            ) : uploadUrl ? (
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center text-secondary"><Check size={24} /></div>
-                <div className="text-center">
-                  <p className="text-sm font-bold text-white">Audio cargado con éxito</p>
-                  <p className="text-xs text-on-surface-variant mt-1 truncate max-w-[300px]">{uploadUrl}</p>
+              <div className="text-left">
+                <p className="text-sm font-bold text-white leading-tight">Subir Música para copiar estilo</p>
+                <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Opcional · La IA usará tu audio como referencia</p>
+              </div>
+              <ChevronDown size={18} className="text-outline-variant ml-4" />
+            </button>
+          ) : (
+            <section className="w-full glass-card p-8 rounded-xl border border-outline-variant/15 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-secondary">Referencia de Estilo (Audio)</h3>
+                  <p className="text-xs text-on-surface-variant mt-1">La IA analizará este audio para replicar su estilo sonoro.</p>
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); setUploadUrl(''); }} className="text-xs text-error hover:underline">Eliminar y subir otro</button>
+                <button onClick={() => { setShowAudioUpload(false); setUploadUrl(''); }} className="p-2 hover:bg-surface-variant rounded-full text-on-surface-variant transition-colors">
+                  <X size={18} />
+                </button>
               </div>
-            ) : (
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface-variant"><Upload size={24} /></div>
-                <div className="text-center">
-                  <p className="text-sm font-bold text-white">Haz clic para subir un audio</p>
-                  <p className="text-xs text-on-surface-variant mt-1">Formatos soportados: MP3, WAV, M4A (Máx 10MB)</p>
-                </div>
+              <div className="flex flex-col items-center justify-center border-2 border-dashed border-outline-variant/30 rounded-2xl p-8 hover:border-secondary/50 transition-colors cursor-pointer bg-surface-container-low" onClick={() => fileInputRef.current?.click()}>
+                <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="audio/*" />
+                {isUploading ? (
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-8 h-8 border-2 border-secondary border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-sm font-body text-on-surface-variant">Analizando y subiendo referencia...</p>
+                  </div>
+                ) : uploadUrl ? (
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center text-secondary shadow-[0_0_20px_rgba(0,219,233,0.2)]"><Check size={24} /></div>
+                    <div className="text-center">
+                      <p className="text-sm font-bold text-white">¡Estilo capturado con éxito!</p>
+                      <p className="text-xs text-on-surface-variant mt-1 truncate max-w-[300px] bg-black/20 px-3 py-1 rounded-full">{uploadUrl.split('-').pop()}</p>
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); setUploadUrl(''); }} className="text-xs text-error/80 hover:text-error transition-colors font-bold uppercase tracking-widest">Eliminar y cambiar audio</button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface-variant"><Upload size={24} /></div>
+                    <div className="text-center">
+                      <p className="text-sm font-bold text-white">Haz clic para subir un audio</p>
+                      <p className="text-xs text-on-surface-variant mt-1">Formatos soportados: MP3, WAV, M4A (Máx 10MB)</p>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </section>
+            </section>
+          )}
+        </div>
 
         <section className="space-y-6">
           <h3 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant text-center">Selecciona el Género</h3>
@@ -804,45 +825,124 @@ import { GoogleGenAI } from "@google/genai";
 
 const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string) => void | Promise<void>, onBack: () => void }) => {
   const [title, setTitle] = React.useState('');
+  const [topic, setTopic] = React.useState('');
   const [lyrics, setLyrics] = React.useState('');
   const [isImproving, setIsImproving] = React.useState(false);
+  const [isOptimizing, setIsOptimizing] = React.useState(false);
+  const [isAIOptimized, setIsAIOptimized] = React.useState(false);
   const [showAIModal, setShowAIModal] = React.useState(false);
+
+  const handleLyricsChange = (val: string) => {
+    setLyrics(val);
+    setIsAIOptimized(false); // Mark as not optimized if manually edited
+  };
+
+  const callGemini = async (prompt: string) => {
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const response = await ai.models.generateContent({ 
+      model: "gemini-2.0-flash", 
+      contents: prompt 
+    });
+    return response.text?.trim() || "";
+  };
+
+  const handleGenerateFromTopic = async () => {
+    if (!topic) return;
+    setIsImproving(true);
+    try {
+      const prompt = `Actúa como un compositor experto y creativo. 
+      Escribe una letra de canción completa Basada en la siguiente idea/tema: "${topic}".
+      
+      REGLAS DE FORMATO (CRÍTICO):
+      1. Usa etiquetas de estructura entre corchetes: [Verse 1], [Chorus], [Verse 2], [Bridge], [Outro].
+      2. No uses paréntesis (), solo corchetes para estructura.
+      3. El lenguaje debe ser poético, rítmico y adecuado al tema.
+      4. No incluyas notas explicativas, solo la letra de la canción.
+      5. La letra debe ser lo suficientemente larga para una canción completa (al menos 3 versos y estribillos).`;
+
+      const result = await callGemini(prompt);
+      if (result) {
+        setLyrics(result);
+        setIsAIOptimized(true);
+        // Tentar extraer un título si el usuario no puso uno
+        if (!title) {
+          const titlePrompt = `Basado en esta letra, genera un título corto y pegajoso (máximo 4 palabras): \n\n${result}`;
+          const generatedTitle = await callGemini(titlePrompt);
+          setTitle(generatedTitle.replace(/["']/g, ''));
+        }
+      }
+    } catch (error) {
+      console.error("Error generating from topic:", error);
+    } finally {
+      setIsImproving(false);
+    }
+  };
 
   const handleImproveLyrics = async (mode: 'clean' | 'full') => {
     if (!lyrics) return;
     setIsImproving(true);
     setShowAIModal(false);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       let prompt = "";
       if (mode === 'clean') {
         prompt = `Mejora la siguiente letra de canción. 
         REGLAS ESTRICTAS:
         1. Solo modifica el texto para que sea más poético y rítmico.
-        2. NO agregues etiquetas de estructura (como [Verse], [Chorus]).
-        3. NO agregues sugerencias, estilos ni indicaciones.
-        4. Cualquier detalle o anotación necesaria DEBE ir entre corchetes [], NUNCA entre paréntesis ().
-        5. Mantén el idioma original.
-
-        Letra original:
-        ${lyrics}`;
+        2. NO agregues etiquetas de estructura.
+        3. Mantén el idioma original.
+        
+        Letra: ${lyrics}`;
       } else {
-        prompt = `Mejora y estructura la siguiente letra de canción para crear un full track compatible con Suno AI.
-        REGLAS ESTRICTAS:
-        1. Usa etiquetas de estructura entre corchetes como [Verse 1], [Chorus], [Verse 2], [Bridge], [Outro].
-        2. NO uses paréntesis (), usa siempre corchetes [].
-        3. NO agregues sugerencias de estilo externas ni texto explicativo fuera de la letra.
-        4. Crea una estructura completa de canción basada en la información brindada.
-
-        Letra original:
-        ${lyrics}`;
+        prompt = `Mejora y estructura la siguiente letra para Suno AI. 
+        REGLAS:
+        1. Usa etiquetas [Verse], [Chorus], [Bridge], [Outro].
+        2. Mejora la rima y el ritmo.
+        
+        Letra: ${lyrics}`;
       }
-      const response = await ai.models.generateContent({ model: "gemini-2.0-flash", contents: prompt });
-      if (response.text) setLyrics(response.text.trim());
+      const result = await callGemini(prompt);
+      if (result) {
+        setLyrics(result);
+        setIsAIOptimized(mode === 'full');
+      }
     } catch (error) {
       console.error("Error improving lyrics:", error);
     } finally {
       setIsImproving(false);
+    }
+  };
+
+  const handleNextWithOptimization = async () => {
+    if (!lyrics) return;
+
+    // If not already optimized by AI, we perform a mandatory Suno structure pass
+    if (!isAIOptimized) {
+      setIsOptimizing(true);
+      try {
+        const prompt = `Optimiza la estructura de esta letra para que Suno AI genere la mejor música posible. 
+        REGLAS:
+        1. NO cambies las palabras del usuario a menos que sea para mejorar la rima.
+        2. Agrega etiquetas de estructura correctas entre corchetes [Verse], [Chorus], [Bridge], [Outro] si no están.
+        3. Si la letra es corta, intenta expandirla un poco manteniendo el estilo.
+        4. Solo devuelve la letra optimizada sin explicaciones.
+        
+        Letra: ${lyrics}`;
+        
+        const result = await callGemini(prompt);
+        if (result) {
+          setLyrics(result);
+          setIsAIOptimized(true);
+          // Proceed after optimization
+          await onNext(title || 'Obra Maestra', result);
+        }
+      } catch (error) {
+        console.error("Optimization error:", error);
+        await onNext(title || 'Obra Maestra', lyrics);
+      } finally {
+        setIsOptimizing(false);
+      }
+    } else {
+      await onNext(title || 'Obra Maestra', lyrics);
     }
   };
 
@@ -882,12 +982,38 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
       <div className="flex flex-col gap-8">
         <div className="flex flex-col gap-6">
           <header className="text-center">
-            <span className="text-secondary font-body text-sm uppercase tracking-[0.2em] mb-2 block">Paso 3: Creatividad Narrativa</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-[10px] uppercase font-bold tracking-[0.2em] mb-4">
+              <Sparkles size={12} /> Powered by Gemini 2.0 Flash
+            </div>
             <h1 className="text-4xl md:text-5xl font-headline font-bold tracking-tight text-on-surface">Letra y Corazón</h1>
-            <p className="text-on-surface-variant mt-4 max-w-2xl mx-auto font-body">Define la identidad de tu track. Escribe tus versos o utiliza nuestra IA para perfeccionar tu mensaje.</p>
+            <p className="text-on-surface-variant mt-4 max-w-2xl mx-auto font-body">Define la identidad de tu track de forma inteligente.</p>
           </header>
 
           <div className="flex flex-col gap-4">
+            {/* Topic Input Section */}
+            <div className="glass-card p-6 rounded-2xl border border-outline-variant/15 space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-widest text-secondary">¿De qué trata tu canción?</label>
+                <span className="text-[10px] text-on-surface-variant">Describe una idea, sentimiento o historia</span>
+              </div>
+              <div className="flex gap-3">
+                <input
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  className="flex-1 bg-surface-container border border-outline-variant/20 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-secondary transition-colors"
+                  placeholder="Ej: Un programador que toma café en la madrugada buscando un bug..."
+                />
+                <button
+                  onClick={handleGenerateFromTopic}
+                  disabled={isImproving || !topic}
+                  className="px-6 py-3 rounded-xl bg-secondary text-black font-bold text-sm hover:brightness-110 disabled:opacity-50 transition-all flex items-center gap-2 whitespace-nowrap"
+                >
+                  {isImproving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                  Generar Letra
+                </button>
+              </div>
+            </div>
+
             <div className="group relative bg-surface-container p-6 rounded-2xl transition-all duration-300 hover:bg-surface-bright">
               <label className="block text-xs font-body uppercase tracking-widest text-primary mb-2">Título de la Obra</label>
               <input
@@ -900,21 +1026,28 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-primary-container to-secondary transition-all duration-500 group-focus-within:w-full"></div>
             </div>
 
-            <div className="relative bg-surface-container rounded-2xl min-h-[500px] flex flex-col overflow-hidden border border-outline-variant/5">
+            <div className="relative bg-surface-container rounded-2xl min-h-[400px] flex flex-col overflow-hidden border border-outline-variant/5">
+              <div className="bg-surface-bright/50 px-6 py-2 border-b border-outline-variant/10 flex justify-between items-center">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Contenido de la Letra</span>
+                {isAIOptimized && (
+                  <span className="text-[10px] font-bold text-secondary flex items-center gap-1">
+                    <Check size={10} /> Estructura Optimizada
+                  </span>
+                )}
+              </div>
               <textarea
                 value={lyrics}
-                onChange={(e) => setLyrics(e.target.value)}
+                onChange={(e) => handleLyricsChange(e.target.value)}
                 className="flex-grow bg-transparent p-8 text-lg font-body leading-relaxed text-on-surface placeholder:text-outline-variant/30 focus:ring-0 focus:outline-none resize-none"
-                placeholder="Empieza a escribir el alma de tu música aquí... [Verso 1] Bajo la luz del neón sintético, busco el silencio en el estruendo..."
+                placeholder="Escribe aquí o genera una letra desde arriba..."
               ></textarea>
-              <div className="absolute bottom-8 right-8">
+              <div className="absolute bottom-6 right-6 flex gap-2">
                 <button
                   onClick={() => setShowAIModal(true)}
                   disabled={isImproving || !lyrics}
-                  className="flex items-center gap-3 px-6 py-4 rounded-full bg-gradient-to-r from-primary-container to-secondary text-black font-headline font-bold shadow-xl shadow-primary/20 scale-100 active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-5 py-3 rounded-xl bg-surface-container-highest border border-outline-variant/20 text-on-surface font-bold text-sm hover:bg-surface-bright active:scale-95 transition-all disabled:opacity-50"
                 >
-                  {isImproving ? <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div> : <Sparkles size={18} />}
-                  {isImproving ? 'Mejorando...' : 'Mejorar con IA'}
+                  <Sparkles size={16} className="text-secondary" /> Mejorar Existente
                 </button>
               </div>
             </div>
@@ -926,14 +1059,26 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
             <ArrowLeft size={18} /> Atrás
           </button>
           <button
-            onClick={async () => { try { await onNext(title, lyrics); } catch (e) { console.error("Error in onNext:", e); } }}
-            className="flex-[2] py-4 rounded-xl font-headline font-bold text-black bg-gradient-to-r from-primary-container to-secondary shadow-lg shadow-primary/20 flex items-center justify-center gap-2 scale-100 active:scale-95 transition-transform"
+            onClick={handleNextWithOptimization}
+            disabled={isOptimizing || !lyrics}
+            className="flex-[2] py-4 rounded-xl font-headline font-bold text-black bg-gradient-to-r from-primary-container to-secondary shadow-lg shadow-primary/20 flex items-center justify-center gap-2 scale-100 active:scale-95 transition-transform disabled:opacity-70"
           >
-            Siguiente Paso <ArrowRight size={18} />
+            {isOptimizing ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Optimizando Estructura...
+              </>
+            ) : (
+              <>
+                Continuar a la Mezcla <ArrowRight size={18} />
+              </>
+            )}
           </button>
         </div>
       </div>
     </motion.div>
+  );
+};
   );
 };
 
