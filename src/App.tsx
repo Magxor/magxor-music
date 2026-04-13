@@ -841,7 +841,7 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
   };
 
   const callGemini = async (prompt: string) => {
-    const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
+    const models = ["gemini-2.5-flash", "gemini-2.0-flash"];
     setAiError(null);
     
     for (let i = 0; i < models.length; i++) {
