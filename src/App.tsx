@@ -43,7 +43,8 @@ import {
   Loader2,
   RefreshCw,
   X,
-  ShoppingCart
+  ShoppingCart,
+  AlertCircle
 } from 'lucide-react';
 
 // ─── Session persistence ────────────────────────────────────────────────────
@@ -831,24 +832,48 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
   const [isOptimizing, setIsOptimizing] = React.useState(false);
   const [isAIOptimized, setIsAIOptimized] = React.useState(false);
   const [showAIModal, setShowAIModal] = React.useState(false);
+  const [aiError, setAiError] = React.useState<string | null>(null);
 
   const handleLyricsChange = (val: string) => {
     setLyrics(val);
-    setIsAIOptimized(false); // Mark as not optimized if manually edited
+    setAiError(null);
+    setIsAIOptimized(false); 
   };
 
   const callGemini = async (prompt: string) => {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const response = await ai.models.generateContent({ 
-      model: "gemini-2.0-flash", 
-      contents: prompt 
-    });
-    return response.text?.trim() || "";
+    const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
+    setAiError(null);
+    
+    for (let i = 0; i < models.length; i++) {
+      const modelName = models[i];
+      try {
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const response = await ai.models.generateContent({ 
+          model: modelName, 
+          contents: prompt 
+        });
+        const text = response.text?.trim();
+        if (text) return text;
+      } catch (error: any) {
+        console.warn(`Intento fallido con ${modelName}:`, error.message);
+        const isQuotaError = error.message?.includes("RESOURCE_EXHAUSTED") || error.status === 429;
+        
+        // Si no es un error de cuota, o es el último modelo de la lista, lanzamos error
+        if (!isQuotaError || i === models.length - 1) {
+          if (isQuotaError) throw new Error("QUOTA_EXCEEDED");
+          throw error;
+        }
+        // Si es error de cuota y hay más modelos, seguimos al siguiente (fallback)
+        console.log(`Cambiando a modelo de respaldo: ${models[i+1]}`);
+      }
+    }
+    return "";
   };
 
   const handleGenerateFromTopic = async () => {
     if (!topic) return;
     setIsImproving(true);
+    setAiError(null);
     try {
       const prompt = `Actúa como un compositor experto y creativo. 
       Escribe una letra de canción completa Basada en la siguiente idea/tema: "${topic}".
@@ -864,15 +889,20 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
       if (result) {
         setLyrics(result);
         setIsAIOptimized(true);
-        // Tentar extraer un título si el usuario no puso uno
         if (!title) {
-          const titlePrompt = `Basado en esta letra, genera un título corto y pegajoso (máximo 4 palabras): \n\n${result}`;
-          const generatedTitle = await callGemini(titlePrompt);
-          setTitle(generatedTitle.replace(/["']/g, ''));
+          try {
+            const titlePrompt = `Basado en esta letra, genera un título corto y pegajoso (máximo 4 palabras): \n\n${result}`;
+            const generatedTitle = await callGemini(titlePrompt);
+            setTitle(generatedTitle.replace(/["']/g, ''));
+          } catch(e) {} // Don't block if title gen fails
         }
       }
-    } catch (error) {
-      console.error("Error generating from topic:", error);
+    } catch (error: any) {
+      if (error.message === "QUOTA_EXCEEDED") {
+        setAiError("La IA está muy ocupada recibiendo peticiones. Por favor, espera unos segundos o escribe tu letra manualmente.");
+      } else {
+        setAiError("Hubo un problema al conectar con la IA. Revisa tu conexión.");
+      }
     } finally {
       setIsImproving(false);
     }
@@ -882,31 +912,25 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
     if (!lyrics) return;
     setIsImproving(true);
     setShowAIModal(false);
+    setAiError(null);
     try {
       let prompt = "";
       if (mode === 'clean') {
-        prompt = `Mejora la siguiente letra de canción. 
-        REGLAS ESTRICTAS:
-        1. Solo modifica el texto para que sea más poético y rítmico.
-        2. NO agregues etiquetas de estructura.
-        3. Mantén el idioma original.
-        
-        Letra: ${lyrics}`;
+        prompt = `Mejora la siguiente letra de canción. Solo modifica el texto para que sea más poético y rítmico. NO agregues etiquetas de estructura. Letra: ${lyrics}`;
       } else {
-        prompt = `Mejora y estructura la siguiente letra para Suno AI. 
-        REGLAS:
-        1. Usa etiquetas [Verse], [Chorus], [Bridge], [Outro].
-        2. Mejora la rima y el ritmo.
-        
-        Letra: ${lyrics}`;
+        prompt = `Mejora y estructura la siguiente letra para Suno AI. Usa etiquetas [Verse], [Chorus], [Bridge], [Outro]. Letra: ${lyrics}`;
       }
       const result = await callGemini(prompt);
       if (result) {
         setLyrics(result);
         setIsAIOptimized(mode === 'full');
       }
-    } catch (error) {
-      console.error("Error improving lyrics:", error);
+    } catch (error: any) {
+      if (error.message === "QUOTA_EXCEEDED") {
+        setAiError("Límite de la IA alcanzado. Intenta mejorarla nuevamente en unos segundos.");
+      } else {
+        setAiError("Ocurrió un error al intentar mejorar la letra.");
+      }
     } finally {
       setIsImproving(false);
     }
@@ -915,28 +939,21 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
   const handleNextWithOptimization = async () => {
     if (!lyrics) return;
 
-    // If not already optimized by AI, we perform a mandatory Suno structure pass
     if (!isAIOptimized) {
       setIsOptimizing(true);
+      setAiError(null);
       try {
-        const prompt = `Optimiza la estructura de esta letra para que Suno AI genere la mejor música posible. 
-        REGLAS:
-        1. NO cambies las palabras del usuario a menos que sea para mejorar la rima.
-        2. Agrega etiquetas de estructura correctas entre corchetes [Verse], [Chorus], [Bridge], [Outro] si no están.
-        3. Si la letra es corta, intenta expandirla un poco manteniendo el estilo.
-        4. Solo devuelve la letra optimizada sin explicaciones.
-        
-        Letra: ${lyrics}`;
-        
+        const prompt = `Optimiza la estructura de esta letra para Suno AI. Agrega etiquetas [Verse], [Chorus], etc. Letra: ${lyrics}`;
         const result = await callGemini(prompt);
         if (result) {
           setLyrics(result);
           setIsAIOptimized(true);
-          // Proceed after optimization
           await onNext(title || 'Obra Maestra', result);
         }
-      } catch (error) {
-        console.error("Optimization error:", error);
+      } catch (error: any) {
+        console.warn("Optimization failed due to quota, proceeding with raw lyrics.");
+        // If quota is exhausted during mandatory optimization, we LET THE USER PASS anyway
+        // to avoid blocking the whole app.
         await onNext(title || 'Obra Maestra', lyrics);
       } finally {
         setIsOptimizing(false);
@@ -990,6 +1007,21 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
           </header>
 
           <div className="flex flex-col gap-4">
+            {/* AI Status/Error Banner */}
+            <AnimatePresence>
+              {aiError && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }} 
+                  animate={{ height: 'auto', opacity: 1 }} 
+                  exit={{ height: 0, opacity: 0 }}
+                  className="bg-error/10 border border-error/20 rounded-xl p-4 flex items-center gap-3 overflow-hidden"
+                >
+                  <AlertCircle size={20} className="text-error shrink-0" />
+                  <p className="text-xs text-error font-medium">{aiError}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Topic Input Section */}
             <div className="glass-card p-6 rounded-2xl border border-outline-variant/15 space-y-4">
               <div className="flex items-center justify-between">
@@ -1029,11 +1061,13 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
             <div className="relative bg-surface-container rounded-2xl min-h-[400px] flex flex-col overflow-hidden border border-outline-variant/5">
               <div className="bg-surface-bright/50 px-6 py-2 border-b border-outline-variant/10 flex justify-between items-center">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Contenido de la Letra</span>
-                {isAIOptimized && (
-                  <span className="text-[10px] font-bold text-secondary flex items-center gap-1">
-                    <Check size={10} /> Estructura Optimizada
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {isAIOptimized && (
+                    <span className="text-[10px] font-bold text-secondary flex items-center gap-1">
+                      <Check size={10} /> IA Estructurada
+                    </span>
+                  )}
+                </div>
               </div>
               <textarea
                 value={lyrics}
