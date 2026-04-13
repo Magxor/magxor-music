@@ -1079,8 +1079,6 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
     </motion.div>
   );
 };
-  );
-};
 
 const DynamicLoader = () => {
   const tasks = [
