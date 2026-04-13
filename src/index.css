@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Manrope:wght@200..800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-headline: "Space Grotesk", sans-serif;
+  --font-body: "Manrope", sans-serif;
+
+  --color-background: #0e0e13;
+  --color-surface: #0e0e13;
+  --color-surface-container: #191920;
+  --color-surface-variant: #25252f;
+  --color-surface-bright: #2b2b36;
+  --color-surface-container-low: #131319;
+  --color-surface-container-high: #1f1f27;
+  --color-surface-container-highest: #25252f;
+  
+  --color-primary: #ac8aff;
+  --color-primary-container: #8f60fa;
+  --color-secondary: #00dbe9;
+  --color-secondary-container: #002b2e;
+  --color-tertiary: #fface8;
+  
+  --color-on-surface: #e6e4f1;
+  --color-on-surface-variant: #abaab6;
+  --color-outline: #757480;
+  --color-outline-variant: #474752;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-surface font-body;
+  }
+}
+
+@utility glass-card {
+  background: rgba(25, 25, 32, 0.6);
+  backdrop-filter: blur(24px);
+}
+
+@utility neon-glow-primary {
+  box-shadow: 0px 0px 15px rgba(139, 92, 246, 0.15);
+}
+
+@utility neon-glow-secondary {
+  box-shadow: 0px 0px 15px rgba(0, 219, 233, 0.15);
+}
+
+@utility waveform-gradient {
+  background: linear-gradient(to top, #00dbe9 0%, #8f60fa 100%);
+}
+
+@layer components {
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-container to-secondary bg-clip-text text-transparent;
+  }
+
+  .btn-primary {
+    @apply px-10 py-4 bg-gradient-to-r from-primary-container to-secondary text-black font-headline font-bold rounded-full shadow-[0px_0px_25px_rgba(139,92,246,0.3)] hover:scale-105 active:scale-95 transition-all cursor-pointer;
+  }
+
+  .btn-secondary {
+    @apply px-10 py-4 glass-card border border-outline-variant/30 text-on-surface font-headline font-bold rounded-full hover:bg-surface-bright transition-all cursor-pointer;
+  }
+}
