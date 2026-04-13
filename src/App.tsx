@@ -845,146 +845,26 @@ const LyricsStep = ({ onNext, onBack, state }: { onNext: (title: string, lyrics:
     setIsAIOptimized(false); 
   };
 
-  const callKieLyrics = async (prompt: string) => {
-    const token = process.env.VITE_KIE_API_TOKEN;
-    if (!token) throw new Error("KIE_TOKEN_MISSING");
-
-    // 1. Iniciar tarea de generación
-    const response = await fetch("https://api.kie.ai/api/v1/lyrics", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        prompt: prompt.substring(0, 200), // Límite de la API
-        callBackUrl: `${process.env.APP_URL || window.location.origin}/api/suno-callback`
-      })
-    });
-
-    if (!response.ok) throw new Error("KIE_API_ERROR");
-    const initData = await response.json();
-    if (initData.code !== 200 || !initData.data?.taskId) {
-      throw new Error(initData.msg || "KIE_INIT_FAILED");
-    }
-
-    const taskId = initData.data.taskId;
-    console.log(`📡 Letras iniciadas en Kie.ai. TaskID: ${taskId}. Iniciando esperas...`);
-    
-    // 2. Polling para obtener el resultado
-    let attempts = 0;
-    const maxAttempts = 12; // 12 intentos x 2.5s = ~30 segundos total
-    
-    while (attempts < maxAttempts) {
-      // Esperamos un poco antes de preguntar
-      await new Promise(resolve => setTimeout(resolve, 2500));
-      attempts++;
-      
-      try {
-        const pollRes = await fetch(`https://api.kie.ai/api/v1/lyrics/record-info?taskId=${taskId}`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        
-        if (pollRes.ok) {
-          const pollData = await pollRes.json();
-          
-          // Según el YAML, el éxito es code 200 y status 'complete' en el primer elemento del array data
-          if (pollData.code === 200 && pollData.data?.data?.[0]?.status === 'complete') {
-            const lyricsText = pollData.data.data[0].text;
-            if (lyricsText) {
-              console.log("✅ Letras recibidas exitosamente de Kie.ai/Suno");
-              return lyricsText;
-            }
-          }
-          
-          if (pollData.data?.data?.[0]?.status === 'failed' || pollData.code >= 400) {
-            console.warn("⚠️ Kie.ai reportó un fallo en la generación de letra.");
-            throw new Error("KIE_GEN_FAILED");
-          }
-        }
-      } catch (e: any) {
-        if (e.message === "KIE_GEN_FAILED") throw e;
-        console.warn(`⏳ Intento ${attempts}: Las letras aún no están listas...`);
-      }
-    }
-    
-    throw new Error("KIE_TIMEOUT");
-  };
-
-  const callOpenAI = async (prompt: string, model: string) => {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error("OPENAI_KEY_MISSING");
-
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7
-      })
-    });
-
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error?.message || "OPENAI_ERROR");
-    }
-
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || "";
-  };
-
   const callAI = async (prompt: string) => {
-    // Orquestación de Inteligencia Multi-Proveedor
-    // Probamos primero Gemini, luego OpenAI como respaldo absoluto.
-    const providers = [
-      { id: 'kie', model: 'suno-lyrics' },
-      { id: 'google', model: 'gemini-2.5-flash' },
-      { id: 'google', model: 'gemini-2.0-flash' },
-      { id: 'google', model: 'gemini-2.5-pro' },
-      { id: 'openai', model: 'gpt-4o' },
-      { id: 'openai', model: 'gpt-4o-mini' }
-    ];
-    
     setAiError(null);
-    
-    for (const p of providers) {
-      try {
-        console.log(`🤖 Intentando generación con ${p.id}:${p.model}...`);
-        
-        if (p.id === 'kie') {
-          const text = await callKieLyrics(prompt);
-          if (text) return text;
-        } else if (p.id === 'google') {
-          const apiKey = process.env.GEMINI_API_KEY;
-          if (!apiKey) continue;
-          
-          const ai = new GoogleGenAI({ apiKey });
-          const response = await ai.models.generateContent({ 
-            model: p.model, 
-            contents: prompt 
-          });
-          const text = response.text?.trim();
-          if (text) return text;
-        } else {
-          // OpenAI Call
-          const text = await callOpenAI(prompt, p.model);
-          if (text) return text;
-        }
-      } catch (error: any) {
-        console.warn(`⚠️ Fallo con ${p.id}:${p.model}:`, error.message);
-        
-        // Si es el último modelo de todos, lanzamos el error definitivo
-        if (p.model === 'gpt-4o-mini') {
-          throw error;
-        }
-        // De lo contrario, saltamos al siguiente modelo de la lista
+    try {
+      const response = await fetch("/api/ai/lyrics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "AI_REQUEST_FAILED");
       }
+
+      const data = await response.json();
+      return data.text || "";
+    } catch (error: any) {
+      console.error("AI Error:", error.message);
+      throw error;
     }
-    return "";
   };
 
   const handleGenerateFromTopic = async () => {
