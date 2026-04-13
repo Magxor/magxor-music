@@ -100,7 +100,7 @@ app.post("/api/suno-callback", (req: any, res) => {
     const hmac = crypto.createHmac('sha256', hmacKey);
     hmac.update(req.rawBody);
     const expectedSignature = hmac.digest('hex');
-    
+
     if (signature !== expectedSignature) {
       console.error("❌ ALERTA: Firma de Webhook inválida detectada.");
       return res.status(401).json({ error: "Invalid signature" });
@@ -140,7 +140,7 @@ app.post("/api/suno-callback", (req: any, res) => {
   } else {
     // 3. Gestión de Errores (Copyright 400, Conflictos 413, Error Servidor 501, etc.)
     console.error(`🔥 Error en generación Suno (${taskId}): ${msg} (Código: ${code})`);
-    
+
     const errorPayload = { taskId, code, msg };
     taskResults.set(taskId, { ...req.body, status: 'error' });
     io.emit("music:error", errorPayload);
@@ -153,7 +153,7 @@ app.post("/api/suno-callback", (req: any, res) => {
 app.post("/api/create-payment", async (req, res) => {
   const { trackId, trackTitle, taskId, price = 5 } = req.body;
   const mpAccessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-  
+
   if (!mpAccessToken) return res.status(500).json({ error: "MercadoPago token not configured" });
 
   const publicUrl = process.env.APP_URL
@@ -228,7 +228,7 @@ if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
   const distPath = path.join(process.cwd(), 'dist');
   app.use(express.static(distPath));
   app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
-  
+
   const PORT = process.env.PORT || 3000;
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Production server running on port ${PORT}`);

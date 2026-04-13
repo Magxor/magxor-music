@@ -60,6 +60,7 @@ export type AppStep = 'landing' | 'purpose' | 'style' | 'lyrics' | 'result';
 export interface SessionData {
   taskId: string | null;
   title: string;
+  topic: string;
   generatedTracks: SunoTrack[];
   paidTrackIds: string[];
   savedAt: number;
@@ -72,6 +73,7 @@ export interface AppState {
   tempo: number;
   mood: string;
   title: string;
+  topic: string;
   lyrics: string;
   isGenerating: boolean;
   taskId: string | null;

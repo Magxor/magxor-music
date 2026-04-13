@@ -497,7 +497,7 @@ const StepIndicator = ({ currentStep }: { currentStep: number }) => {
   );
 };
 
-const PurposeStep = ({ onNext, onBack }: { onNext: (purpose: string) => void, onBack: () => void }) => {
+const PurposeStep = ({ onNext, onBack, state }: { onNext: (purpose: string) => void, onBack: () => void, state: AppState }) => {
   const purposes = [
     { id: 'event', title: 'Un Evento Especial', desc: 'Bodas, aniversarios, fiestas de graduación o momentos inolvidables.', icon: Sparkles, tags: ['Wedding', 'Party'] },
     { id: 'gift', title: 'Un Regalo Único', desc: 'Cumpleaños, declaraciones de amor o un detalle personalizado.', icon: Heart, tags: ['Birthday', 'Anniversary'] },
@@ -520,7 +520,7 @@ const PurposeStep = ({ onNext, onBack }: { onNext: (purpose: string) => void, on
           <button
             key={p.id}
             onClick={() => onNext(p.id)}
-            className="group relative flex flex-col items-start p-8 rounded-2xl glass-card border border-outline-variant/15 text-left transition-all duration-300 hover:border-secondary/50 hover:bg-surface-bright active:scale-95"
+            className={`group relative flex flex-col items-start p-8 rounded-2xl glass-card border text-left transition-all duration-300 hover:border-secondary/50 hover:bg-surface-bright active:scale-95 ${state.purpose === p.id ? 'border-secondary bg-secondary/5 ring-1 ring-secondary/20 shadow-[0_0_30px_rgba(0,219,233,0.15)]' : 'border-outline-variant/15'}`}
           >
             <div className="mb-8 p-4 rounded-xl bg-primary-container/10 text-primary transition-transform duration-300 group-hover:scale-110">
               <p.icon size={32} />
@@ -544,20 +544,20 @@ const PurposeStep = ({ onNext, onBack }: { onNext: (purpose: string) => void, on
   );
 };
 
-const StyleStep = ({ onNext, onBack }: { onNext: (genre: string, tempo: number, mood: string, advanced: Partial<AppState>) => void, onBack: () => void }) => {
-  const [genre, setGenre] = React.useState('Rock');
-  const [tempo, setTempo] = React.useState(128);
-  const [mood, setMood] = React.useState('Energetic & Powerful');
+const StyleStep = ({ onNext, onBack, state }: { onNext: (genre: string, tempo: number, mood: string, advanced: Partial<AppState>) => void, onBack: (values: Partial<AppState>) => void, state: AppState }) => {
+  const [genre, setGenre] = React.useState(state.genre || 'Rock');
+  const [tempo, setTempo] = React.useState(state.tempo || 128);
+  const [mood, setMood] = React.useState(state.mood || 'Energetic & Powerful');
   const [showAdvanced, setShowAdvanced] = React.useState(false);
-  const [customMode, setCustomMode] = React.useState(true);
-  const [instrumental, setInstrumental] = React.useState(false);
-  const [negativeTags, setNegativeTags] = React.useState('Heavy Metal, Upbeat Drums');
-  const [vocalGender, setVocalGender] = React.useState<'m' | 'f' | 'none'>('m');
-  const [styleWeight, setStyleWeight] = React.useState(0.65);
-  const [weirdnessConstraint, setWeirdnessConstraint] = React.useState(0.65);
-  const [audioWeight, setAudioWeight] = React.useState(0.65);
-  const [personaId, setPersonaId] = React.useState('persona_123');
-  const [uploadUrl, setUploadUrl] = React.useState('');
+  const [customMode, setCustomMode] = React.useState(state.customMode ?? true);
+  const [instrumental, setInstrumental] = React.useState(state.instrumental ?? false);
+  const [negativeTags, setNegativeTags] = React.useState(state.negativeTags || 'Heavy Metal, Upbeat Drums');
+  const [vocalGender, setVocalGender] = React.useState<'m' | 'f' | 'none'>(state.vocalGender || 'm');
+  const [styleWeight, setStyleWeight] = React.useState(state.styleWeight ?? 0.65);
+  const [weirdnessConstraint, setWeirdnessConstraint] = React.useState(state.weirdnessConstraint ?? 0.65);
+  const [audioWeight, setAudioWeight] = React.useState(state.audioWeight ?? 0.65);
+  const [personaId, setPersonaId] = React.useState(state.personaId || 'persona_123');
+  const [uploadUrl, setUploadUrl] = React.useState(state.uploadUrl || '');
   const [isUploading, setIsUploading] = React.useState(false);
   const [showAudioUpload, setShowAudioUpload] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -812,7 +812,12 @@ const StyleStep = ({ onNext, onBack }: { onNext: (genre: string, tempo: number, 
         </div>
 
         <div className="flex gap-4 max-w-2xl mx-auto">
-          <button onClick={onBack} className="flex-1 py-4 rounded-xl border border-outline-variant/20 font-bold hover:bg-surface-variant transition-colors">Atrás</button>
+          <button 
+            onClick={() => onBack({ genre, tempo, mood, customMode, instrumental, negativeTags, vocalGender, styleWeight, weirdnessConstraint, audioWeight, personaId, uploadUrl })} 
+            className="flex-1 py-4 rounded-xl border border-outline-variant/20 font-bold hover:bg-surface-variant transition-colors"
+          >
+            Atrás
+          </button>
           <button onClick={handleContinue} className="flex-[2] py-4 rounded-xl bg-primary text-black font-extrabold tracking-tight hover:brightness-110 transition-all flex items-center justify-center gap-2">
             Continuar <ArrowRight size={18} />
           </button>
@@ -824,10 +829,10 @@ const StyleStep = ({ onNext, onBack }: { onNext: (genre: string, tempo: number, 
 
 import { GoogleGenAI } from "@google/genai";
 
-const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string) => void | Promise<void>, onBack: () => void }) => {
-  const [title, setTitle] = React.useState('');
-  const [topic, setTopic] = React.useState('');
-  const [lyrics, setLyrics] = React.useState('');
+const LyricsStep = ({ onNext, onBack, state }: { onNext: (title: string, lyrics: string, topic: string) => void | Promise<void>, onBack: (title: string, lyrics: string, topic: string) => void, state: AppState }) => {
+  const [title, setTitle] = React.useState(state.title || '');
+  const [topic, setTopic] = React.useState(state.topic || '');
+  const [lyrics, setLyrics] = React.useState(state.lyrics || '');
   const [isImproving, setIsImproving] = React.useState(false);
   const [isOptimizing, setIsOptimizing] = React.useState(false);
   const [isAIOptimized, setIsAIOptimized] = React.useState(false);
@@ -840,38 +845,73 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
     setIsAIOptimized(false); 
   };
 
-  const callGemini = async (prompt: string) => {
-    // Lista de modelos de mayor a menor probabilidad de disponibilidad/costo
-    const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"];
+  const callOpenAI = async (prompt: string, model: string) => {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) throw new Error("OPENAI_KEY_MISSING");
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || "OPENAI_ERROR");
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content?.trim() || "";
+  };
+
+  const callAI = async (prompt: string) => {
+    // Orquestación de Inteligencia Multi-Proveedor
+    // Probamos primero Gemini, luego OpenAI como respaldo absoluto.
+    const providers = [
+      { id: 'google', model: 'gemini-2.5-flash' },
+      { id: 'google', model: 'gemini-2.0-flash' },
+      { id: 'google', model: 'gemini-2.5-pro' },
+      { id: 'openai', model: 'gpt-4o' },
+      { id: 'openai', model: 'gpt-4o-mini' }
+    ];
+    
     setAiError(null);
     
-    for (let i = 0; i < models.length; i++) {
-      const modelName = models[i];
+    for (const p of providers) {
       try {
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        const response = await ai.models.generateContent({ 
-          model: modelName, 
-          contents: prompt 
-        });
-        const text = response.text?.trim();
-        if (text) return text;
+        console.log(`🤖 Intentando generación con ${p.id}:${p.model}...`);
+        
+        if (p.id === 'google') {
+          const apiKey = process.env.GEMINI_API_KEY;
+          if (!apiKey) continue;
+          
+          const ai = new GoogleGenAI({ apiKey });
+          const response = await ai.models.generateContent({ 
+            model: p.model, 
+            contents: prompt 
+          });
+          const text = response.text?.trim();
+          if (text) return text;
+        } else {
+          // OpenAI Call
+          const text = await callOpenAI(prompt, p.model);
+          if (text) return text;
+        }
       } catch (error: any) {
-        console.warn(`Intento fallido con ${modelName}:`, error.message);
+        console.warn(`⚠️ Fallo con ${p.id}:${p.model}:`, error.message);
         
-        // Consideramos "reintentables" tanto los límites de cuota (429) como saturación del servidor (503)
-        const isRetriableError = 
-          error.message?.includes("RESOURCE_EXHAUSTED") || 
-          error.status === 429 || 
-          error.status === 503 || 
-          error.message?.includes("UNAVAILABLE");
-        
-        // Si no es un error reintentable (ej: error 400), o es el último modelo de la lista, lanzamos error
-        if (!isRetriableError || i === models.length - 1) {
-          if (isRetriableError) throw new Error("IA_BUSY");
+        // Si es el último modelo de todos, lanzamos el error definitivo
+        if (p.model === 'gpt-4o-mini') {
           throw error;
         }
-        
-        console.log(`Cambiando a modelo de respaldo: ${models[i+1]} debido a saturación en ${modelName}`);
+        // De lo contrario, saltamos al siguiente modelo de la lista
       }
     }
     return "";
@@ -892,14 +932,14 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
       4. No incluyas notas explicativas, solo la letra de la canción.
       5. La letra debe ser lo suficientemente larga para una canción completa (al menos 3 versos y estribillos).`;
 
-      const result = await callGemini(prompt);
+      const result = await callAI(prompt);
       if (result) {
         setLyrics(result);
         setIsAIOptimized(true);
         if (!title) {
           try {
             const titlePrompt = `Basado en esta letra, genera un título corto y pegajoso (máximo 4 palabras): \n\n${result}`;
-            const generatedTitle = await callGemini(titlePrompt);
+            const generatedTitle = await callAI(titlePrompt);
             setTitle(generatedTitle.replace(/["']/g, ''));
           } catch(e) {} // Don't block if title gen fails
         }
@@ -927,7 +967,7 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
       } else {
         prompt = `Mejora y estructura la siguiente letra para Suno AI. Usa etiquetas [Verse], [Chorus], [Bridge], [Outro]. Letra: ${lyrics}`;
       }
-      const result = await callGemini(prompt);
+      const result = await callAI(prompt);
       if (result) {
         setLyrics(result);
         setIsAIOptimized(mode === 'full');
@@ -951,7 +991,7 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
       setAiError(null);
       try {
         const prompt = `Optimiza la estructura de esta letra para Suno AI. Agrega etiquetas [Verse], [Chorus], etc. Letra: ${lyrics}`;
-        const result = await callGemini(prompt);
+        const result = await callAI(prompt);
         if (result) {
           setLyrics(result);
           setIsAIOptimized(true);
@@ -1096,7 +1136,7 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
         </div>
 
         <div className="flex gap-4 max-w-2xl mx-auto w-full">
-          <button onClick={onBack} className="flex-1 py-4 rounded-xl font-headline font-bold text-on-surface bg-surface-container-high hover:bg-surface-bright transition-colors flex items-center justify-center gap-2">
+          <button onClick={() => onBack(title, lyrics, topic)} className="flex-1 py-4 rounded-xl font-headline font-bold text-on-surface bg-surface-container-high hover:bg-surface-bright transition-colors flex items-center justify-center gap-2">
             <ArrowLeft size={18} /> Atrás
           </button>
           <button
@@ -1394,6 +1434,7 @@ const DEFAULT_STATE: AppState = {
   tempo: 128,
   mood: 'Enérgico y Potente',
   title: '',
+  topic: '',
   lyrics: '',
   isGenerating: false,
   taskId: null,
@@ -1527,8 +1568,8 @@ export default function App() {
   const handleStyleNext = (genre: string, tempo: number, mood: string, advanced: Partial<AppState>) =>
     setState(s => ({ ...s, genre, tempo, mood, ...advanced, step: 'lyrics' }));
 
-  const handleLyricsNext = async (title: string, lyrics: string) => {
-    setState(s => ({ ...s, title, lyrics, isGenerating: true }));
+  const handleLyricsNext = async (title: string, lyrics: string, topic: string) => {
+    setState(s => ({ ...s, title, lyrics, topic, isGenerating: true }));
 
     const genreMap: Record<string, string> = {
       'Rock': 'Rock, Electric Guitar', 'Jazz': 'Jazz, Saxophone, Smooth',
@@ -1638,9 +1679,27 @@ export default function App() {
       <main className="flex-grow pt-24 pb-12 px-6 flex flex-col items-center">
         <AnimatePresence mode="wait">
           {state.step === 'landing' && <Landing onStart={handleStart} />}
-          {state.step === 'purpose' && <PurposeStep onNext={handlePurposeNext} onBack={handleBack} />}
-          {state.step === 'style' && <StyleStep onNext={handleStyleNext} onBack={handleBack} />}
-          {state.step === 'lyrics' && <LyricsStep onNext={handleLyricsNext} onBack={handleBack} />}
+          {state.step === 'purpose' && <PurposeStep onNext={handlePurposeNext} onBack={handleBack} state={state} />}
+          {state.step === 'style' && (
+            <StyleStep 
+              onNext={handleStyleNext} 
+              onBack={(v) => {
+                setState(s => ({ ...s, ...v }));
+                handleBack();
+              }} 
+              state={state} 
+            />
+          )}
+          {state.step === 'lyrics' && (
+            <LyricsStep 
+              onNext={handleLyricsNext} 
+              onBack={(t, l, top) => {
+                setState(s => ({ ...s, title: t, lyrics: l, topic: top }));
+                handleBack();
+              }} 
+              state={state} 
+            />
+          )}
           {state.step === 'result' && (
             <ResultStep state={state} onReset={handleReset} onPay={handlePayTrack} />
           )}
