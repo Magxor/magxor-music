@@ -95,28 +95,58 @@ app.post("/api/suno-callback", (req: any, res) => {
   const hmacKey = process.env.WEBHOOK_HMAC_KEY;
   const signature = req.headers['x-kie-signature'] || req.headers['signature'];
 
+  // 1. Webhook Security: Verificar la firma HMAC para asegurar que la petición viene de Kie.ai
   if (hmacKey && signature && req.rawBody) {
     const hmac = crypto.createHmac('sha256', hmacKey);
     hmac.update(req.rawBody);
     const expectedSignature = hmac.digest('hex');
+    
     if (signature !== expectedSignature) {
-      console.error("Invalid webhook signature");
+      console.error("❌ ALERTA: Firma de Webhook inválida detectada.");
       return res.status(401).json({ error: "Invalid signature" });
     }
   }
 
-  const callbackData = req.body;
-  const taskId = callbackData.data?.task_id;
-  const callbackType = callbackData.data?.callbackType;
+  const { code, msg, data } = req.body;
+  const taskId = data?.task_id;
+  const callbackType = data?.callbackType;
+  const tracks = data?.data || [];
 
-  if (taskId) {
-    taskResults.set(taskId, callbackData);
-    if (callbackType === 'complete') {
-      io.emit("music:complete", callbackData);
-      console.log(`Task ${taskId} complete — emitting signal`);
-    }
+  if (!taskId) {
+    console.error("⚠️ Callback recibido sin taskId.");
+    return res.status(400).json({ error: "No task_id found" });
   }
 
+  console.log(`📡 Suno Callback [${callbackType}]: Task ${taskId} (Code: ${code})`);
+
+  // 2. Manejo de códigos de estado según documentación
+  if (code === 200) {
+    // Cachear resultado para el Polling de respaldo
+    taskResults.set(taskId, req.body);
+
+    switch (callbackType) {
+      case 'text':
+        console.log(`📝 Letra generada para ${taskId}.`);
+        break;
+      case 'first':
+        console.log(`🎵 Primera pista generada para ${taskId}.`);
+        // Por petición del usuario, no emitimos todavía para esperar a que estén las dos
+        break;
+      case 'complete':
+        console.log(`✅ Tarea ${taskId} completada con éxito. Notificando al cliente.`);
+        io.emit("music:complete", req.body);
+        break;
+    }
+  } else {
+    // 3. Gestión de Errores (Copyright 400, Conflictos 413, Error Servidor 501, etc.)
+    console.error(`🔥 Error en generación Suno (${taskId}): ${msg} (Código: ${code})`);
+    
+    const errorPayload = { taskId, code, msg };
+    taskResults.set(taskId, { ...req.body, status: 'error' });
+    io.emit("music:error", errorPayload);
+  }
+
+  // Responder siempre 200 rápido para evitar timeouts del servidor de callbacks
   res.status(200).json({ status: "received" });
 });
 

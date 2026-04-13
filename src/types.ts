@@ -88,4 +88,5 @@ export interface AppState {
   generatedTracks: SunoTrack[];
   // Payment
   paidTrackIds: string[];
+  error?: string | null;
 }

@@ -841,7 +841,8 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
   };
 
   const callGemini = async (prompt: string) => {
-    const models = ["gemini-2.5-flash", "gemini-2.0-flash"];
+    // Lista de modelos de mayor a menor probabilidad de disponibilidad/costo
+    const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"];
     setAiError(null);
     
     for (let i = 0; i < models.length; i++) {
@@ -856,15 +857,21 @@ const LyricsStep = ({ onNext, onBack }: { onNext: (title: string, lyrics: string
         if (text) return text;
       } catch (error: any) {
         console.warn(`Intento fallido con ${modelName}:`, error.message);
-        const isQuotaError = error.message?.includes("RESOURCE_EXHAUSTED") || error.status === 429;
         
-        // Si no es un error de cuota, o es el último modelo de la lista, lanzamos error
-        if (!isQuotaError || i === models.length - 1) {
-          if (isQuotaError) throw new Error("QUOTA_EXCEEDED");
+        // Consideramos "reintentables" tanto los límites de cuota (429) como saturación del servidor (503)
+        const isRetriableError = 
+          error.message?.includes("RESOURCE_EXHAUSTED") || 
+          error.status === 429 || 
+          error.status === 503 || 
+          error.message?.includes("UNAVAILABLE");
+        
+        // Si no es un error reintentable (ej: error 400), o es el último modelo de la lista, lanzamos error
+        if (!isRetriableError || i === models.length - 1) {
+          if (isRetriableError) throw new Error("IA_BUSY");
           throw error;
         }
-        // Si es error de cuota y hay más modelos, seguimos al siguiente (fallback)
-        console.log(`Cambiando a modelo de respaldo: ${models[i+1]}`);
+        
+        console.log(`Cambiando a modelo de respaldo: ${models[i+1]} debido a saturación en ${modelName}`);
       }
     }
     return "";
@@ -1138,24 +1145,56 @@ const DynamicLoader = () => {
   }, []);
 
   return (
-    <div className="flex flex-col gap-4 w-full max-w-sm">
+    <div className="flex flex-col gap-4 w-full">
       {tasks.map((task, idx) => (
         <motion.div
           key={idx}
           initial={{ opacity: 0, x: -20 }}
           animate={visibleTasks.includes(idx) ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
-          className="flex items-center gap-3"
+          className="flex items-center gap-4 py-2 px-4 rounded-xl transition-colors hover:bg-white/5"
         >
-          <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${visibleTasks.includes(idx + 1) ? 'bg-primary border-primary text-black' : 'border-outline-variant text-transparent'}`}>
+          <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${visibleTasks.includes(idx + 1) ? 'bg-primary border-primary text-black shadow-[0_0_15px_rgba(143,96,250,0.5)]' : 'border-outline-variant text-transparent bg-transparent'}`}>
             <Check size={12} strokeWidth={4} />
           </div>
-          <span className={`text-sm font-body ${visibleTasks.includes(idx + 1) ? 'text-on-surface-variant line-through opacity-50' : visibleTasks.includes(idx) ? 'text-on-surface font-bold' : 'text-outline'}`}>
+          <span className={`text-sm font-medium tracking-wide ${visibleTasks.includes(idx + 1) ? 'text-on-surface-variant line-through opacity-40' : visibleTasks.includes(idx) ? 'text-white font-bold' : 'text-outline-variant'}`}>
             {task}
           </span>
           {visibleTasks.includes(idx) && !visibleTasks.includes(idx + 1) && (
-            <Loader2 size={14} className="text-primary animate-spin" />
+            <motion.div 
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+              className="ml-auto"
+            >
+              <RefreshCw size={14} className="text-secondary" />
+            </motion.div>
           )}
         </motion.div>
+      ))}
+    </div>
+  );
+};
+
+const AudioVisualizer = () => {
+  return (
+    <div className="flex items-center justify-center gap-[3px] h-12 w-full max-w-[200px]">
+      {[...Array(20)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="w-[3px] bg-gradient-to-t from-primary/40 to-secondary rounded-full"
+          animate={{ 
+            height: [
+              Math.random() * 20 + 5, 
+              Math.random() * 40 + 8, 
+              Math.random() * 20 + 5
+            ] 
+          }}
+          transition={{
+            duration: 0.6 + (Math.random() * 0.4),
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: i * 0.05
+          }}
+        />
       ))}
     </div>
   );
@@ -1237,28 +1276,100 @@ const ResultStep = ({
             );
           })
         ) : (
-          <div className="col-span-2 text-center py-20 px-6 glass-card rounded-3xl flex flex-col items-center justify-center border border-outline-variant/20 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-surface-container-highest overflow-hidden">
+          <div className="col-span-2 relative py-20 px-6 glass-card rounded-3xl flex flex-col items-center justify-center border border-outline-variant/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden">
+            {/* Ambient Background Glow */}
+            <motion.div 
+              animate={{ 
+                scale: [1, 1.1, 1],
+                opacity: [0.3, 0.5, 0.3]
+              }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute -top-24 -left-24 w-64 h-64 bg-primary/20 rounded-full blur-[100px]"
+            />
+            <motion.div 
+              animate={{ 
+                scale: [1, 1.2, 1],
+                opacity: [0.2, 0.4, 0.2]
+              }}
+              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+              className="absolute -bottom-24 -right-24 w-64 h-64 bg-secondary/20 rounded-full blur-[100px]"
+            />
+
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-surface-container-highest overflow-hidden">
               <motion.div
-                className="h-full bg-primary"
-                initial={{ width: "0%" }}
-                animate={{ width: "100%" }}
-                transition={{ duration: 20, ease: "linear" }}
+                className="h-full bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_100%]"
+                initial={{ x: "-100%" }}
+                animate={{ x: "0%" }}
+                transition={{ duration: 60, ease: "linear" }}
+              />
+              <motion.div
+                className="absolute top-0 left-0 h-full w-full bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                animate={{ x: ["-100%", "200%"] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
               />
             </div>
-            <div className="mb-10 text-center">
-              <h3 className="text-3xl font-headline font-bold mb-3 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                Componiendo tu Obra...
-              </h3>
-              <p className="text-on-surface-variant font-body">Nuestra orquesta neuronal está trabajando en los detalles finales.</p>
-            </div>
-            <DynamicLoader />
-            {state.taskId && (
-              <div className="mt-12 pt-6 border-t border-outline-variant/10 w-full flex flex-col items-center gap-2">
-                <p className="text-[10px] text-outline uppercase tracking-[0.3em] font-bold">ID de Tarea: {state.taskId}</p>
-                <p className="text-[10px] text-outline/60 uppercase tracking-widest">Tu sesión está guardada. Puedes cerrar y volver más tarde.</p>
+
+            <div className="relative z-10 w-full max-w-lg flex flex-col items-center">
+              <div className="mb-12 text-center">
+                {state.error ? (
+                  <>
+                    <motion.div 
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="w-20 h-20 rounded-full bg-error/10 flex items-center justify-center text-error mx-auto mb-8 border border-error/20"
+                    >
+                      <AlertCircle size={40} />
+                    </motion.div>
+                    <h3 className="text-4xl font-headline font-bold mb-4 text-error tracking-tight">
+                      Sesión Interrumpida
+                    </h3>
+                    <p className="text-on-surface-variant font-body max-w-sm mx-auto text-lg mb-10">{state.error}</p>
+                    <button 
+                      onClick={onReset}
+                      className="group px-10 py-4 rounded-2xl bg-surface-bright border border-outline-variant/20 font-bold hover:border-error/50 hover:bg-error/5 transition-all flex items-center gap-3 mx-auto shadow-xl"
+                    >
+                      <RefreshCw size={20} className="group-hover:rotate-180 transition-transform duration-500" /> 
+                      <span className="uppercase tracking-widest text-xs">Reintentar Composición</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-8 flex justify-center">
+                      <AudioVisualizer />
+                    </div>
+                    <h3 className="text-4xl md:text-5xl font-headline font-bold mb-4 bg-gradient-to-r from-white via-primary-container to-secondary bg-clip-text text-transparent tracking-tighter">
+                      Orquesta Neuronal en Proceso
+                    </h3>
+                    <div className="flex items-center justify-center gap-3 text-on-surface-variant font-medium tracking-wide">
+                      <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
+                      Sincronizando pistas y armonías...
+                    </div>
+                  </>
+                )}
               </div>
-            )}
+              
+              {!state.error && (
+                <div className="w-full bg-black/20 backdrop-blur-md rounded-2xl p-6 border border-white/5 shadow-inner">
+                  <DynamicLoader />
+                </div>
+              )}
+
+              {state.taskId && !state.error && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 2 }}
+                  className="mt-12 pt-8 border-t border-outline-variant/10 w-full flex flex-col items-center gap-4"
+                >
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-container text-[10px] text-outline-variant uppercase tracking-[0.3em] font-bold border border-outline-variant/5">
+                    ID: {state.taskId}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-on-surface-variant/60 font-body italic">
+                    <Shield size={12} /> Tu sesión está segura. Puedes volver cuando quieras.
+                  </div>
+                </motion.div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -1297,6 +1408,7 @@ const DEFAULT_STATE: AppState = {
   uploadUrl: '',
   generatedTracks: [],
   paidTrackIds: [],
+  error: null,
 };
 
 export default function App() {
@@ -1363,21 +1475,24 @@ export default function App() {
       const tracks: SunoTrack[] | null = data?.data?.data;
       if (Array.isArray(tracks) && tracks.length > 0) {
         setState(s => {
-          // Only update if this event is for the current task
           const taskId = data?.data?.task_id;
           if (taskId && s.taskId && taskId !== s.taskId) return s;
-          if (s.generatedTracks.length > 0) return s; // already have tracks
+          if (s.generatedTracks.length > 0) return s; 
           return { ...s, generatedTracks: tracks };
         });
       }
     };
 
-    socket.on('music:complete', handleMusicComplete);
-    return () => { socket.off('music:complete', handleMusicComplete); };
-  }, []);
+    const handleMusicError = (data: any) => {
+      console.error('Socket: music:error received', data);
+      const taskId = data?.taskId;
+      setState(s => {
+        if (taskId && s.taskId && taskId !== s.taskId) return s;
+        return { ...s, error: data.msg || "La generación ha fallado. Revisa tu letra e intenta de nuevo." };
+      });
+    };
 
-  // ── Polling — fallback for when socket isn't reliable ─────────────────────
-  React.useEffect(() => {
+    socket.on('music:complete', handleMusicComplete);
     if (!state.taskId || state.generatedTracks.length > 0) return;
 
     let attempts = 0;

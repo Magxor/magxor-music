@@ -29,6 +29,15 @@ export async function getTaskDetails(taskId: string): Promise<SunoTrack[] | null
 
   const json = await response.json();
 
+  // Detectar errores según el formato de callback y API
+  if (json?.code && json.code !== 200) {
+    throw new Error(json.msg || `Error ${json.code} en Suno API`);
+  }
+  
+  if (json?.status === 'error') {
+    throw new Error(json.msg || "La generación ha fallado. Intenta ajustar la letra o el estilo.");
+  }
+
   // Caso 1: llegó por callback y está en caché del server (formato SunoCallbackData)
   // { code: 200, data: { callbackType: 'complete', data: [...tracks] } }
   if (json?.data?.callbackType === 'complete' && Array.isArray(json?.data?.data)) {
