@@ -5,17 +5,10 @@
 
 const MercadoPago = {
   publicKey: 'APP_USR-f52b077b-6253-4df0-804c-002b7f422839',
-  preferenceUrl: 'https://api.magxormusic.com/create-preference',
+  preferenceUrl: '/api/create-payment',
   
   async init() {
-    if (typeof MercadoPago !== 'undefined') {
-      const mp = new MercadoPago(this.publicKey);
-      mp.checkout({
-        preference: {
-          items: []
-        }
-      });
-    }
+    console.log('MercadoPago initialized');
   },
 
   async createPreference(songData) {
@@ -25,11 +18,11 @@ const MercadoPago = {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        songId: songData.songId,
-        title: songData.songTitle,
-        price: songData.amount,
-        currency: songData.currency || 'ARS',
-        userId: songData.userId
+        trackId: songData.songId,
+        trackTitle: songData.songTitle,
+        taskId: songData.taskId,
+        useCoupon: songData.useCoupon || false,
+        price: songData.price || 30000
       })
     });
 
@@ -40,35 +33,28 @@ const MercadoPago = {
     return response.json();
   },
 
-  async openCheckout(preferenceId) {
-    const mp = new MercadoPago(this.publicKey, {
-      locale: 'es-AR'
-    });
-
-    mp.checkout({
-      preference: {
-        id: preferenceId
-      },
-      render: {
-        container: '.wallet-container',
-        label: 'Pagar con Mercado Pago'
-      }
-    });
+  async openCheckout(initPoint) {
+    window.location.href = initPoint;
   },
 
   handleReturn() {
     const urlParams = new URLSearchParams(window.location.search);
-    const status = urlParams.get('status');
-    const paymentId = urlParams.get('payment_id');
-    const preferenceId = urlParams.get('preference_id');
+    const payment = urlParams.get('payment');
+    const songId = urlParams.get('song');
+    const coupon = urlParams.get('coupon');
 
-    if (status === 'approved') {
-      app.handlePaymentSuccess(paymentId, preferenceId);
-    } else if (status === 'pending') {
-      app.showToast('Pago pendiente. Te notificaremos cuando se confirme.', 'info');
-    } else if (status === 'failure') {
-      app.showToast('El pago no fue completado. Intenta nuevamente.', 'error');
+    if (payment === 'success') {
+      console.log('Payment success:', { songId, coupon });
+      return { success: true, songId, coupon };
+    } else if (payment === 'failure') {
+      console.log('Payment failure');
+      return { success: false, error: 'Pago fallido' };
+    } else if (payment === 'pending') {
+      console.log('Payment pending');
+      return { success: false, error: 'Pago pendiente' };
     }
+    
+    return null;
   }
 };
 
