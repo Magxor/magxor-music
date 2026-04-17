@@ -51,6 +51,27 @@ export async function getTaskDetails(taskId: string): Promise<SunoTrack[] | null
     return tracks;
   }
 
+  // Caso 3: Formato alternativo directo en data
+  // { code: 200, data: [...tracks] }
+  if (Array.isArray(json?.data) && json.data.length > 0) {
+    return json.data;
+  }
+
+  // Caso 4: respuesta con tasks anidado
+  // { code: 200, data: { tasks: [...], response: {...} } }
+  const tasksTracks = json?.data?.tasks || json?.data?.response?.tasks;
+  if (Array.isArray(tasksTracks) && tasksTracks.length > 0) {
+    return tasksTracks;
+  }
+
+  // Estado aún procesando - verificar status
+  if (json?.data?.status === 'pending' || json?.data?.status === 'processing') {
+    return null;
+  }
+
+  // Log para debug
+  console.log('getTaskDetails: response structure:', JSON.stringify(json, null, 2));
+  
   // Todavía procesando
   return null;
 }

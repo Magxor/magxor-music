@@ -1,152 +1,103 @@
 const CACHE_NAME = 'magxor-music-v1';
-const STATIC_ASSETS = [
+const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/css/styles.css',
   '/js/app.js',
-  '/manifest.json'
+  '/manifest.json',
+  'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap'
 ];
 
-const EXTERNAL_ASSETS = [
-  'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap'
-];
-
+// Install event - cache assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('Caching static assets');
-      return cache.addAll(STATIC_ASSETS);
-    })
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log('Caching app assets');
+        return cache.addAll(ASSETS_TO_CACHE);
+      })
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
+// Activate event - clean old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
+        cacheNames
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => caches.delete(name))
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
+// Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') return;
 
-  if (request.method !== 'GET') {
-    return;
-  }
+  // Skip API requests
+  if (event.request.url.includes('/api/')) return;
 
-  if (url.origin === 'https://api.kie.ai') {
-    event.respondWith(networkFirst(request));
-    return;
-  }
+  event.respondWith(
+    caches.match(event.request)
+      .then((cachedResponse) => {
+        if (cachedResponse) {
+          // Return cached response and update cache in background
+          event.waitUntil(
+            fetch(event.request)
+              .then((networkResponse) => {
+                if (networkResponse && networkResponse.status === 200) {
+                  caches.open(CACHE_NAME)
+                    .then((cache) => cache.put(event.request, networkResponse));
+                }
+              })
+              .catch(() => {})
+          );
+          return cachedResponse;
+        }
 
-  if (url.origin === location.origin) {
-    event.respondWith(cacheFirst(request));
-    return;
-  }
+        // Not in cache, fetch from network
+        return fetch(event.request)
+          .then((networkResponse) => {
+            if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+              return networkResponse;
+            }
 
-  if (EXTERNAL_ASSETS.some(asset => request.url.includes(asset))) {
-    event.respondWith(cacheFirst(request));
-    return;
-  }
+            // Cache the new response
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME)
+              .then((cache) => cache.put(event.request, responseToCache));
 
-  event.respondWith(networkFirst(request));
+            return networkResponse;
+          })
+          .catch(() => {
+            // Offline fallback
+            return caches.match('/index.html');
+          });
+      })
+  );
 });
 
-async function cacheFirst(request) {
-  const cached = await caches.match(request);
-  if (cached) {
-    return cached;
-  }
-
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch (error) {
-    return new Response('Offline', { status: 503 });
-  }
-}
-
-async function networkFirst(request) {
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch (error) {
-    const cached = await caches.match(request);
-    if (cached) {
-      return cached;
-    }
-    return new Response(JSON.stringify({ error: 'Offline' }), {
-      status: 503,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-}
-
-self.addEventListener('message', (event) => {
-  if (event.data === 'skipWaiting') {
-    self.skipWaiting();
-  }
-});
-
+// Push notifications (future)
 self.addEventListener('push', (event) => {
   if (event.data) {
     const data = event.data.json();
-    const options = {
-      body: data.body || 'Tu música está lista',
+    self.registration.showNotification(data.title, {
+      body: data.body,
       icon: '/assets/icon-192.png',
       badge: '/assets/icon-192.png',
-      vibrate: [100, 50, 100],
-      data: {
-        url: data.url || '/'
-      }
-    };
-
-    event.waitUntil(
-      self.registration.showNotification(data.title || 'MAGXOR Music', options)
-    );
+      vibrate: [200, 100, 200],
+      data: data.url
+    });
   }
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      if (clientList.length > 0) {
-        return clientList[0].focus();
-      }
-      if (event.notification.data?.url) {
-        return clients.openWindow(event.notification.data.url);
-      }
-    })
-  );
-});
-
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-music') {
-    event.waitUntil(syncMusicData());
+  if (event.notification.data) {
+    clients.openWindow(event.notification.data);
   }
 });
-
-async function syncMusicData() {
-  console.log('Syncing music data...');
-}

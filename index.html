@@ -1,13 +1,553 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#FFF5F8">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="description" content="MAGXOR Music - Crea canciones personalizadas con IA">
+  <title>MAGXOR Music</title>
+  
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+  <link rel="apple-touch-icon" href="assets/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="css/styles.css">
+  
+  <!-- Socket.IO Client -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    
+    <!-- Floating Bubbles (Temu Style) -->
+    <div class="floating-bubbles">
+      <div class="bubble bubble-1"></div>
+      <div class="bubble bubble-2"></div>
+      <div class="bubble bubble-3"></div>
+      <div class="bubble bubble-4"></div>
+    </div>
 
+    <!-- Timer -->
+    <div id="timer-header" class="timer-header">
+      <span>⏱️</span>
+      <span id="timer-display">20:00</span>
+    </div>
+
+    <!-- Theme Toggle -->
+    <button id="theme-toggle" class="theme-toggle" onclick="app.toggleTheme()" title="Cambiar tema">
+      <span class="theme-icon">🌙</span>
+    </button>
+
+    <!-- Social Counter -->
+    <div class="social-counter">
+      <span>🔥</span>
+      <span id="counter-number">12,847</span>
+      <span>creando</span>
+    </div>
+
+    <!-- ======================== WELCOME ======================== -->
+    <section id="screen-welcome" class="screen active">
+      <div class="welcome-content">
+        <div class="discount-badge">
+          🎉 50% OFF - ¡Oferta limitada!
+        </div>
+        
+        <div class="brand-logo-wrap">
+          <div class="brand-logo">🎵</div>
+          <span class="logo-sparkles">✨</span>
+        </div>
+        
+        <h1 class="welcome-title">
+          Tus sentimientos,
+          <span class="highlight">convertidos en canciones</span>
+        </h1>
+        
+        <p class="welcome-subtitle">
+          Transforma emociones en composiciones únicas con IA. La primera plataforma que entiende el alma de tu sonido.
+        </p>
+        
+        <button class="btn-main" onclick="app.nextScreen()">
+          <span>Empezar a Crear</span>
+          <span class="btn-arrow">→</span>
+        </button>
+        
+        <div class="features-grid">
+          <div class="feature-card">
+            <span class="feature-icon">🎵</span>
+            <span class="feature-text">IA Avanzada</span>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">⚡</span>
+            <span class="feature-text">50+ Géneros</span>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">🎁</span>
+            <span class="feature-text">50% OFF</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================== PURPOSE ======================== -->
+    <section id="screen-purpose" class="screen">
+      <header class="screen-header">
+        <button class="btn-back" onclick="app.prevScreen()">←</button>
+        <div class="step-progress">
+          <span class="step-dot active"></span>
+          <span class="step-dot"></span>
+          <span class="step-dot"></span>
+          <span class="step-dot"></span>
+        </div>
+      </header>
+      
+      <div class="title-area">
+        <h1>¿Para qué es tu <span class="highlight">canción</span>?</h1>
+        <p>Seleccioná el propósito para ajustar el estilo</p>
+      </div>
+      
+      <div class="content">
+        <div class="purpose-list">
+          <button class="purpose-card" data-purpose="event" onclick="app.selectPurpose(this)">
+            <div class="purpose-icon">🎉</div>
+            <div class="purpose-info">
+              <h3>Evento Especial</h3>
+              <p>Bodas, cumpleaños, graduaciones</p>
+            </div>
+            <div class="purpose-check">✓</div>
+          </button>
+          
+          <button class="purpose-card" data-purpose="gift" onclick="app.selectPurpose(this)">
+            <div class="purpose-icon">💝</div>
+            <div class="purpose-info">
+              <h3>Regalo</h3>
+              <p>Para alguien especial</p>
+            </div>
+            <div class="purpose-check">✓</div>
+          </button>
+          
+          <button class="purpose-card" data-purpose="brand" onclick="app.selectPurpose(this)">
+            <div class="purpose-icon">🎯</div>
+            <div class="purpose-info">
+              <h3>Marca</h3>
+              <p>Negocios, podcast, publicidad</p>
+            </div>
+            <div class="purpose-check">✓</div>
+          </button>
+          
+          <button class="purpose-card" data-purpose="personal" onclick="app.selectPurpose(this)">
+            <div class="purpose-icon">🎤</div>
+            <div class="purpose-info">
+              <h3>Uso Personal</h3>
+              <p>Para vos mismo</p>
+            </div>
+            <div class="purpose-check">✓</div>
+          </button>
+        </div>
+      </div>
+      
+      <div class="bottom-bar">
+        <button id="btn-purpose" class="btn-action" onclick="app.nextScreen()" disabled>
+          Continuar
+        </button>
+      </div>
+    </section>
+
+    <!-- ======================== ORIGIN ======================== -->
+    <section id="screen-origin" class="screen">
+      <header class="screen-header">
+        <button class="btn-back" onclick="app.prevScreen()">←</button>
+        <div class="step-progress">
+          <span class="step-dot completed"></span>
+          <span class="step-dot active"></span>
+          <span class="step-dot"></span>
+          <span class="step-dot"></span>
+        </div>
+      </header>
+      
+      <div class="title-area">
+        <h1>¿Cómo quieres <span class="highlight">crear</span>?</h1>
+        <p>Creá desde cero o copiá un estilo existente</p>
+      </div>
+      
+      <div class="content">
+        <div class="origin-list">
+          <button class="origin-card" data-origin="create" onclick="app.selectOrigin(this)">
+            <div class="origin-icon">✨</div>
+            <div class="origin-info">
+              <h3>Crear desde Cero</h3>
+              <p>La IA genera todo con tu descripción</p>
+            </div>
+          </button>
+          
+          <button class="origin-card" data-origin="cover" onclick="app.selectOrigin(this)">
+            <div class="origin-icon">🎸</div>
+            <div class="origin-info">
+              <h3>Copiar Estilo</h3>
+              <p>Subí una canción como referencia</p>
+            </div>
+          </button>
+          
+          <div id="upload-section" class="hidden">
+            <div class="upload-box" onclick="document.getElementById('audio-input').click()">
+              <input type="file" id="audio-input" accept="audio/*" onchange="app.handleAudioUpload(this)">
+              <div class="upload-icon">🎵</div>
+              <h4>Subí tu canción</h4>
+              <p>MP3, WAV, M4A (máx 10MB)</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================== GENRE ======================== -->
+    <section id="screen-genre" class="screen">
+      <header class="screen-header">
+        <button class="btn-back" onclick="app.prevScreen()">←</button>
+        <div class="step-progress">
+          <span class="step-dot completed"></span>
+          <span class="step-dot completed"></span>
+          <span class="step-dot active"></span>
+          <span class="step-dot"></span>
+        </div>
+      </header>
+      
+      <div class="title-area">
+        <h1>¿Qué <span class="highlight">género</span> te gusta?</h1>
+        <p>Elegí el ritmo musical</p>
+      </div>
+      
+      <div class="content">
+        <div class="genre-scroll">
+          <div class="genre-track">
+            <button class="genre-chip" data-genre="Cuarteto" onclick="app.selectGenre(this)">
+              <span class="genre-emoji">🎹</span><span>Cuarteto</span>
+            </button>
+            <button class="genre-chip" data-genre="Cumbia" onclick="app.selectGenre(this)">
+              <span class="genre-emoji">💃</span><span>Cumbia</span>
+            </button>
+            <button class="genre-chip" data-genre="Tango" onclick="app.selectGenre(this)">
+              <span class="genre-emoji">🌹</span><span>Tango</span>
+            </button>
+            <button class="genre-chip" data-genre="Rock" onclick="app.selectGenre(this)">
+              <span class="genre-emoji">🎸</span><span>Rock</span>
+            </button>
+            <button class="genre-chip" data-genre="Pop" onclick="app.selectGenre(this)">
+              <span class="genre-emoji">🎧</span><span>Pop</span>
+            </button>
+            <button class="genre-chip" data-genre="Reggaeton" onclick="app.selectGenre(this)">
+              <span class="genre-emoji">🔥</span><span>Reggaetón</span>
+            </button>
+            <button class="genre-chip" data-genre="Balada" onclick="app.selectGenre(this)">
+              <span class="genre-emoji">💕</span><span>Balada</span>
+            </button>
+            <button class="genre-chip" data-genre="Folklore" onclick="app.selectGenre(this)">
+              <span class="genre-emoji">🏔️</span><span>Folklore</span>
+            </button>
+          </div>
+        </div>
+        
+        <div class="custom-genre-input">
+          <input type="text" id="custom-genre" class="input" placeholder="¿Otro género?" maxlength="30">
+          <button class="btn btn-secondary" onclick="app.addCustomGenre()">+</button>
+        </div>
+        
+        <div id="voice-section" class="voice-section hidden">
+          <div class="section-label">🎤 Tipo de voz</div>
+          <div class="voice-options">
+            <button class="voice-btn" data-voice="male" onclick="app.selectVoice(this)">
+              <span class="voice-icon">👨</span>
+              <span class="voice-text">Masculina</span>
+            </button>
+            <button class="voice-btn" data-voice="female" onclick="app.selectVoice(this)">
+              <span class="voice-icon">👩</span>
+              <span class="voice-text">Femenina</span>
+            </button>
+            <button class="voice-btn" data-voice="instrumental" onclick="app.selectVoice(this)">
+              <span class="voice-icon">🎼</span>
+              <span class="voice-text">Instrumental</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bottom-bar">
+        <button id="btn-genre" class="btn-action" onclick="app.nextScreen()" disabled>
+          Continuar
+        </button>
+      </div>
+    </section>
+
+    <!-- ======================== LYRICS ======================== -->
+    <section id="screen-lyrics" class="screen">
+      <header class="screen-header">
+        <button class="btn-back" onclick="app.prevScreen()">←</button>
+        <div class="step-progress">
+          <span class="step-dot completed"></span>
+          <span class="step-dot completed"></span>
+          <span class="step-dot completed"></span>
+          <span class="step-dot active"></span>
+        </div>
+      </header>
+      
+      <div class="title-area">
+        <h1>Contame tu <span class="highlight">historia</span></h1>
+        <p>Describí o escribí las letras</p>
+      </div>
+      
+      <div class="content">
+        <div class="lyrics-options">
+          <button class="lyrics-option selected" data-option="ai" onclick="app.selectLyricsOption(this)">
+            <span class="option-icon">🤖</span>
+            <span class="option-text">La IA crea las letras</span>
+          </button>
+          <button class="lyrics-option" data-option="write" onclick="app.selectLyricsOption(this)">
+            <span class="option-icon">✍️</span>
+            <span class="option-text">Escribo las letras</span>
+          </button>
+        </div>
+        
+        <div class="input-group">
+          <label class="input-label">Título de la canción</label>
+          <input type="text" id="song-title" class="title-input" placeholder="Ej: Danzas de Estrellas" maxlength="50" oninput="app.updateTitle(this.value)">
+        </div>
+        
+        <div id="ai-section">
+          <div class="input-group">
+            <label class="input-label">Describe tu canción</label>
+            <textarea id="ai-prompt" class="lyrics-textarea" placeholder="Ej: Una canción de amor sobre dos personas que se encontraron después de muchos años, con un toque melancólico pero esperanzador..." maxlength="500" oninput="app.updateAiPrompt(this.value)"></textarea>
+            <div class="char-count"><span id="char-count">0</span>/500</div>
+          </div>
+          
+          <button class="ai-generate-btn" onclick="app.generateLyricsWithAI()">
+            <span>✨</span>
+            <span>Generar letras con IA</span>
+          </button>
+        </div>
+        
+        <div id="write-section" class="hidden">
+          <div class="input-group">
+            <label class="input-label">Escribí las letras</label>
+            <textarea id="custom-lyrics" class="lyrics-textarea" placeholder="[Intro]&#10;Tu letra aquí...&#10;&#10;[Estribillo]&#10;..." maxlength="2000" oninput="app.updateCustomLyrics(this.value)"></textarea>
+            <div class="char-count"><span id="custom-char-count">0</span>/2000</div>
+          </div>
+        </div>
+        
+        <!-- LYRICS PREVIEW -->
+        <div id="lyrics-preview" class="lyrics-preview hidden">
+          <div class="lyrics-preview-header">
+            <h4>📝 Letra de tu canción</h4>
+            <button class="edit-lyrics-btn" onclick="app.editLyrics()">Editar</button>
+          </div>
+          <div id="lyrics-preview-content" class="lyrics-preview-content"></div>
+        </div>
+      </div>
+      
+      <div class="bottom-bar">
+        <button id="btn-generate" class="btn-action" onclick="app.nextScreen()" disabled>
+          <span class="btn-text">Continuar</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ======================== GENERATION ======================== -->
+    <section id="screen-generation" class="screen">
+      <div class="generation-content">
+        <div class="generation-animation">
+          <div class="wave-loader">
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+          </div>
+        </div>
+        
+        <h2 class="generation-title">Creando tu <span class="highlight">obra maestra</span></h2>
+        <p class="generation-status" id="gen-status">Procesando...</p>
+        
+        <div class="generation-steps">
+          <div class="gen-step" id="step-1">
+            <span class="gen-step-icon">🎼</span>
+            <span>Creando melodía</span>
+          </div>
+          <div class="gen-step" id="step-2">
+            <span class="gen-step-icon">🎤</span>
+            <span>Grabando voces</span>
+          </div>
+          <div class="gen-step" id="step-3">
+            <span class="gen-step-icon">🎹</span>
+            <span>Mezclando instrumentos</span>
+          </div>
+          <div class="gen-step" id="step-4">
+            <span class="gen-step-icon">✨</span>
+            <span>Perfeccionando</span>
+          </div>
+        </div>
+        
+        <button class="btn-ghost" onclick="app.cancelGeneration()" style="margin-top: 32px;">Cancelar</button>
+      </div>
+    </section>
+
+    <!-- ======================== SELECTION ======================== -->
+    <section id="screen-selection" class="screen">
+      <header class="screen-header">
+        <h1 style="font-size: 1.2rem; font-weight: 900; background: var(--gradient-pink); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">MAGXOR Music</h1>
+      </header>
+      
+      <div class="title-area">
+        <h1>Tu canción está <span class="highlight">lista</span></h1>
+        <p>Escuchá y elegí tu versión favorita</p>
+      </div>
+      
+      <div class="content">
+        <div id="songs-list" class="songs-list"></div>
+      </div>
+    </section>
+
+    <!-- ======================== PAYMENT ======================== -->
+    <section id="screen-payment" class="screen">
+      <header class="screen-header">
+        <button class="btn-back" onclick="app.prevScreen()">←</button>
+      </header>
+      
+      <div class="title-area">
+        <h1>Finalizar <span class="highlight">descarga</span></h1>
+      </div>
+      
+      <div class="content">
+        <div class="payment-summary">
+          <img id="payment-cover" src="" alt="" class="payment-cover">
+          <div class="payment-details">
+            <h3 id="payment-title">Canción</h3>
+            <p id="payment-duration">Duración: 0:00</p>
+          </div>
+        </div>
+        
+        <div class="gift-banner">
+          <span class="gift-icon">🎁</span>
+          <div class="gift-text">
+            <h4>GIFT: Versión B gratis</h4>
+            <p>Al pagar, también recibís la otra versión</p>
+          </div>
+        </div>
+        
+        <div class="coupon-section">
+          <h4>¿Tenés un cupón de descuento?</h4>
+          <div class="coupon-input-row">
+            <input type="text" id="coupon-input" class="input" placeholder="MAGXORMUSIC-0001" maxlength="18">
+            <button class="btn btn-sm" onclick="app.applyCoupon()">Aplicar</button>
+          </div>
+          <div id="coupon-result" class="coupon-result hidden"></div>
+        </div>
+        
+        <div id="coupon-applied" class="coupon-applied-badge hidden">✓ ¡50% OFF aplicado!</div>
+        
+        <div class="price-display">
+          <div class="price-row" id="price-original-row">
+            <span class="price-label">Precio normal</span>
+            <span class="price-value original">$30.000</span>
+          </div>
+          <div class="price-row total">
+            <span class="price-label">Total a pagar</span>
+            <span class="price-value large" id="price-final">$30.000</span>
+          </div>
+        </div>
+        
+        <button id="btn-checkout" class="btn-action" onclick="app.initPayment()">
+          <span class="btn-text">💳 Pagar con MercadoPago</span>
+          <span class="btn-loading hidden"><span class="spinner"></span> Procesando...</span>
+        </button>
+        
+        <p class="secure-text">🔒 Pago 100% seguro</p>
+      </div>
+    </section>
+
+    <!-- ======================== SUCCESS ======================== -->
+    <section id="screen-success" class="screen">
+      <div class="success-content">
+        <div class="success-icon">🎉</div>
+        <h1 class="success-title">¡Felicidades!</h1>
+        <p class="success-subtitle">Tu canción está lista para descargar</p>
+        
+        <button class="download-btn" onclick="app.downloadSong()">
+          <span>⬇️</span>
+          <span id="download-text">Descargar MP3</span>
+        </button>
+        
+        <div class="coupon-share">
+          <h4>🎁 GIFT: Versión B gratis</h4>
+          <p>También podés descargar la otra versión</p>
+          <button class="btn btn-secondary" onclick="app.downloadVersionB()" style="margin-bottom: 20px;">Descargar Versión B</button>
+          
+          <h4>Compartí y obtené 50% OFF</h4>
+          <p>Tu próximo cupón:</p>
+          <div class="coupon-code-box">
+            <span class="coupon-code" id="generated-coupon">MAGXORMUSIC-0001</span>
+            <button class="copy-btn" onclick="app.copyCoupon()">📋</button>
+          </div>
+          <button class="share-whatsapp" onclick="app.shareWhatsApp()">
+            <span>📱</span>
+            Compartir por WhatsApp
+          </button>
+        </div>
+        
+        <button class="create-new" onclick="app.goHome()">
+          ← Crear otra canción
+        </button>
+      </div>
+    </section>
+
+    <!-- ======================== MODALS ======================== -->
+    
+    <!-- Exit Modal -->
+    <div id="exit-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-icon">👋</div>
+        <h3>¿Sigues ahí?</h3>
+        <p>Tu sesión está por expirar. ¿Querés continuar creando tu música?</p>
+        <div class="modal-buttons">
+          <button class="btn-primary" onclick="app.continueSession()">Sí, continuar</button>
+          <button class="btn-ghost" onclick="app.leaveSession()">Salir</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Audio Modal -->
+    <div id="audio-modal" class="modal">
+      <div class="modal-content audio-modal-content">
+        <div class="audio-modal-close">
+          <button onclick="app.closeAudioModal()">✕</button>
+        </div>
+        <img id="modal-cover" src="" alt="" class="audio-modal-cover">
+        <h3 class="audio-title" id="modal-title">Canción</h3>
+        <div class="audio-progress">
+          <div class="audio-progress-bar" id="audio-progress-bar"></div>
+        </div>
+        <div class="audio-time">
+          <span id="current-time">0:00</span>
+          <span id="total-time">0:00</span>
+        </div>
+        <button class="audio-play-btn" id="audio-play-btn" onclick="app.togglePlay()">▶</button>
+        <button class="audio-select-btn" onclick="app.selectThisSong()">Seleccionar esta versión</button>
+      </div>
+      <audio id="audio-player" src=""></audio>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast">
+      <span id="toast-message">Mensaje</span>
+    </div>
+
+  </div>
+
+  <script src="js/socket.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

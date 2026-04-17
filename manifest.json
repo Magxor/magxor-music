@@ -1,13 +1,22 @@
 {
   "name": "MAGXOR Music",
-  "short_name": "MAGXOR Music",
-  "description": "Crea música personalizada con IA - Una rama creativa de MAGXOR Digital",
+  "short_name": "MAGXOR",
+  "description": "Crea canciones personalizadas con inteligencia artificial",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0a0a",
-  "theme_color": "#7c3aed",
+  "background_color": "#0a0612",
+  "theme_color": "#0a0612",
   "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "es",
+  "categories": ["music", "entertainment"],
   "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "assets/icon-192.png",
       "sizes": "192x192",
@@ -18,8 +27,5 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ],
-  "categories": ["music", "entertainment", "lifestyle"],
-  "lang": "es",
-  "scope": "/"
+  ]
 }

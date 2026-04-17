@@ -6,7 +6,6 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import crypto from "crypto";
-import { GoogleGenerativeAI } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -204,78 +203,84 @@ const callKieLyrics = async (prompt: string, publicUrl: string) => {
   throw new Error("KIE_TIMEOUT");
 };
 
-const callGemini = async (prompt: string, model: string) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_KEY_MISSING");
-  
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const aiModel = genAI.getGenerativeModel({ model });
-  const result = await aiModel.generateContent(prompt);
-  return result.response.text().trim();
-};
-
-const callOpenAI = async (prompt: string, model: string) => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_KEY_MISSING");
-
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7
-    })
-  });
-
-  if (!response.ok) throw new Error("OPENAI_API_ERROR");
-  const data: any = await response.json();
-  return data.choices?.[0]?.message?.content?.trim() || "";
-};
+// Using Kie.ai only for lyrics
 
 app.post("/api/ai/lyrics", async (req, res) => {
   const { prompt } = req.body;
   if (!prompt) return res.status(400).json({ error: "Prompt is required" });
 
-  const publicUrl = process.env.APP_URL 
-    ? process.env.APP_URL.replace(/\/$/, '') 
-    : `https://${req.headers.host}`;
-
-  const providers = [
-    { id: 'kie', model: 'suno-lyrics' },
-    { id: 'google', model: 'gemini-2.5-flash' },
-    { id: 'google', model: 'gemini-2.0-flash' },
-    { id: 'google', model: 'gemini-2.5-pro' },
-    { id: 'openai', model: 'gpt-4o' },
-    { id: 'openai', model: 'gpt-4o-mini' }
-  ];
-
-  for (const p of providers) {
-    try {
-      console.log(`🤖 [Backend] Intentando con ${p.id}:${p.model}...`);
-      let text = "";
-      
-      if (p.id === 'kie') {
-        text = await callKieLyrics(prompt, publicUrl);
-      } else if (p.id === 'google') {
-        text = await callGemini(prompt, p.model);
-      } else if (p.id === 'openai') {
-        text = await callOpenAI(prompt, p.model);
-      }
-
-      if (text) {
-        console.log(`✅ [Backend] Exito con ${p.id}:${p.model}`);
-        return res.json({ text });
-      }
-    } catch (error: any) {
-      console.warn(`⚠️ [Backend] Fallo con ${p.id}:${p.model}:`, error.message);
-      if (p.model === 'gpt-4o-mini') {
-        return res.status(500).json({ error: "All AI providers failed", details: error.message });
-      }
+  try {
+    console.log(`🤖 [Backend] Generando letras con Kie.ai...`);
+    const text = await callKieLyrics(prompt, `https://${req.headers.host}`);
+    
+    if (text) {
+      console.log(`✅ [Backend] Letras generadas con éxito`);
+      return res.json({ text });
     }
+  } catch (error: any) {
+    console.error(`⚠️ [Backend] Fallo con Kie.ai:`, error.message);
+  }
+
+  // Fallback
+  const fallbackLyrics = `[Intro]
+${prompt.substring(0, 30)}...
+
+[Verso 1]
+Cada momento es especial,
+como una melodía que empieza a sonar.
+Tus palabras son mi inspiración,
+tu presencia mi mejor canción.
+
+[Coro]
+Esta es nuestra historia,
+escrita con notas de amor.
+Juntos creamos algo único,
+que nadie más podrá borrar.
+
+[Verso 2]
+Las notas fluyen en el aire,
+como recuerdos que nunca mueren.
+Construimos sueños paso a paso,
+esta canción es nuestra herencia.
+
+[Coro]
+Esta es nuestra historia,
+escrita con notas de amor...`;
+
+  return res.json({ text: fallbackLyrics });
+});
+
+// ─── Coupon Generation ─────────────────────────────────────────────────────────
+
+const generateCouponCode = async (): Promise<string> => {
+  const COUPON_PREFIX = 'MAGXORMUSIC-';
+  const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  
+  if (redisUrl && redisToken) {
+    try {
+      const response = await fetch(`${redisUrl}/incr/coupon_counter`, {
+        headers: { Authorization: `Bearer ${redisToken}` }
+      });
+      const data = await response.json();
+      const counter = data.result || 1;
+      return `${COUPON_PREFIX}${String(counter).padStart(4, '0')}`;
+    } catch (error) {
+      console.error('Redis coupon error:', error);
+    }
+  }
+  
+  const random = Math.floor(Math.random() * 9000) + 1000;
+  return `${COUPON_PREFIX}${random}`;
+};
+
+app.post("/api/generate-coupon", async (req, res) => {
+  try {
+    const couponCode = await generateCouponCode();
+    res.json({ success: true, couponCode });
+  } catch (error) {
+    console.error('Coupon generation error:', error);
+    res.status(500).json({ success: false, error: "Failed to generate coupon" });
   }
 });
 
@@ -296,7 +301,7 @@ app.post("/api/create-payment", async (req, res) => {
         title: `Magxor Music · ${trackTitle || 'Canción'}`,
         description: "Descarga permanente",
         quantity: 1,
-        currency_id: "USD",
+        currency_id: "ARS",
         unit_price: price,
       }],
       back_urls: {
