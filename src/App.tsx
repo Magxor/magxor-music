@@ -54,6 +54,7 @@ import {
   SocialCounter, 
   CouponModal,
   CouponDisplay,
+  CouponInput,
   PRICE_FULL,
   PRICE_DISCOUNTED 
 } from './components/CouponSystem';
@@ -67,6 +68,7 @@ function saveSession(state: AppState) {
   const data: SessionData = {
     taskId: state.taskId,
     title: state.title,
+    topic: state.topic,
     generatedTracks: state.generatedTracks,
     paidTrackIds: state.paidTrackIds,
     savedAt: Date.now(),
@@ -989,18 +991,18 @@ const LyricsStep = ({ onNext, onBack, state }: { onNext: (title: string, lyrics:
         if (result) {
           setLyrics(result);
           setIsAIOptimized(true);
-          await onNext(title || 'Obra Maestra', result);
+          await onNext(title || 'Obra Maestra', result, topic);
         }
       } catch (error: any) {
         console.warn("Optimization failed due to quota, proceeding with raw lyrics.");
         // If quota is exhausted during mandatory optimization, we LET THE USER PASS anyway
         // to avoid blocking the whole app.
-        await onNext(title || 'Obra Maestra', lyrics);
+        await onNext(title || 'Obra Maestra', lyrics, topic);
       } finally {
         setIsOptimizing(false);
       }
     } else {
-      await onNext(title || 'Obra Maestra', lyrics);
+      await onNext(title || 'Obra Maestra', lyrics, topic);
     }
   };
 
