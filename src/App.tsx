@@ -44,8 +44,20 @@ import {
   RefreshCw,
   X,
   ShoppingCart,
-  AlertCircle
+  AlertCircle,
+  Gift
 } from 'lucide-react';
+
+import { 
+  ExpirationTimer, 
+  ExitConfirmModal, 
+  SocialCounter, 
+  CouponModal,
+  CouponDisplay,
+  PRICE_FULL,
+  PRICE_DISCOUNTED 
+} from './components/CouponSystem';
+import { generateCoupon, claimCoupon } from './services/paymentService';
 
 // ─── Session persistence ────────────────────────────────────────────────────
 const SESSION_KEY = 'magxor_session';
@@ -335,18 +347,26 @@ const PaymentModal = ({
 }) => {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [couponApplied, setCouponApplied] = React.useState(false);
+  const [couponCode, setCouponCode] = React.useState('');
+
+  const price = couponApplied ? PRICE_DISCOUNTED : PRICE_FULL;
 
   const handlePay = async () => {
     setLoading(true);
     setError('');
     try {
-      const result = await createPayment(track, taskId);
-      // Redirect to MercadoPago checkout
+      const result = await createPayment(track, taskId, couponApplied);
       window.location.href = result.init_point;
     } catch (e: any) {
       setError(e?.message || 'Error al iniciar el pago. Intenta nuevamente.');
       setLoading(false);
     }
+  };
+
+  const handleCouponApply = (code: string) => {
+    setCouponApplied(true);
+    setCouponCode(code);
   };
 
   return (
@@ -371,7 +391,7 @@ const PaymentModal = ({
         </div>
 
         {/* Track info */}
-        <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface-container mb-6 border border-outline-variant/10">
+        <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface-container mb-4 border border-outline-variant/10">
           {track.image_url ? (
             <img src={track.image_url} alt={track.title} className="w-14 h-14 rounded-lg object-cover" referrerPolicy="no-referrer" />
           ) : (
@@ -384,8 +404,32 @@ const PaymentModal = ({
             <p className="text-xs text-on-surface-variant">Audio MP3 · Alta calidad</p>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-headline font-bold text-white">$5</p>
-            <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">USD</p>
+            {couponApplied ? (
+              <>
+                <p className="text-lg font-headline font-bold text-white line-through opacity-50">$30.000</p>
+                <p className="text-2xl font-headline font-bold text-green-400">$15.000</p>
+              </>
+            ) : (
+              <p className="text-2xl font-headline font-bold text-white">$30.000</p>
+            )}
+            <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">ARS</p>
+          </div>
+        </div>
+
+        {/* Coupon Input */}
+        {!couponApplied && (
+          <div className="mb-4 p-4 rounded-2xl bg-surface-container border border-outline-variant/10">
+            <p className="text-xs text-on-surface-variant mb-2">¿Tienes un cupón de descuento?</p>
+            <CouponInput onApply={handleCouponApply} />
+          </div>
+        )}
+
+        {/* Gift Notice */}
+        <div className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-xl p-3 mb-6 border border-primary/20">
+          <div className="flex items-center gap-2">
+            <Gift size={16} className="text-secondary" />
+            <span className="text-xs text-secondary font-bold">GIFT:</span>
+            <span className="text-xs text-on-surface-variant">La Versión B es gratis al pagar</span>
           </div>
         </div>
 
@@ -393,7 +437,7 @@ const PaymentModal = ({
         <ul className="space-y-2 mb-6">
           {[
             'Descarga permanente en MP3',
-            'Derechos de uso personal',
+            'Versión A + Versión B gratis',
             'Sin marca de agua',
           ].map(b => (
             <li key={b} className="flex items-center gap-3 text-sm text-on-surface-variant">
@@ -422,7 +466,7 @@ const PaymentModal = ({
           ) : (
             <>
               <CreditCard size={18} />
-              Pagar con MercadoPago
+              Pagar {couponApplied ? 'con 50% OFF' : ''}
             </>
           )}
         </button>
@@ -1194,12 +1238,22 @@ const ResultStep = ({
   state,
   onReset,
   onPay,
+  timerExpires,
+  onTimerExpire,
 }: {
   state: AppState;
   onReset: () => void;
   onPay: (track: SunoTrack) => void;
+  timerExpires?: number;
+  onTimerExpire?: () => void;
 }) => {
   const hasTracks = state.generatedTracks.length > 0;
+
+  if (timerExpires && onTimerExpire) {
+    const handleExpire = () => {
+      onTimerExpire();
+    };
+  }
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center w-full max-w-7xl">
@@ -1258,7 +1312,7 @@ const ResultStep = ({
                       className="flex-1 py-3 rounded-xl bg-gradient-to-r from-primary-container to-secondary text-black font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all"
                     >
                       <ShoppingCart size={16} />
-                      Comprar · $5 USD
+                      Comprar · $30.000 ARS
                     </button>
                   )}
                 </div>
@@ -1402,11 +1456,44 @@ const DEFAULT_STATE: AppState = {
   error: null,
 };
 
+const TIMER_DURATION_MS = 20 * 60 * 1000; // 20 minutes
+
 export default function App() {
   const [state, setState] = React.useState<AppState>(DEFAULT_STATE);
   const [pendingSession, setPendingSession] = React.useState<SessionData | null>(null);
   const [payingTrack, setPayingTrack] = React.useState<SunoTrack | null>(null);
+  const [showExitModal, setShowExitModal] = React.useState(false);
+  const [timerExpires, setTimerExpires] = React.useState<number | undefined>();
+  const [showCouponModal, setShowCouponModal] = React.useState(false);
+  const [generatedCoupon, setGeneratedCoupon] = React.useState<string | null>(null);
+  const [paidWithCoupon, setPaidWithCoupon] = React.useState<string | null>(null);
   const socketRef = React.useRef<Socket | null>(null);
+
+  // ── Timer Management ────────────────────────────────────────────────────────
+  const startTimer = React.useCallback(() => {
+    if (!timerExpires) {
+      setTimerExpires(Date.now() + TIMER_DURATION_MS);
+    }
+  }, [timerExpires]);
+
+  const resetTimer = React.useCallback(() => {
+    setTimerExpires(undefined);
+    setShowExitModal(false);
+  }, []);
+
+  const handleTimerExpire = React.useCallback(() => {
+    setShowExitModal(true);
+  }, []);
+
+  const handleContinueFromModal = React.useCallback(() => {
+    setTimerExpires(Date.now() + TIMER_DURATION_MS);
+    setShowExitModal(false);
+  }, []);
+
+  const handleLeaveFromModal = React.useCallback(() => {
+    resetTimer();
+    handleReset();
+  }, [resetTimer]);
 
   // ── On mount: check for session & payment return ──────────────────────────
   React.useEffect(() => {
@@ -1414,6 +1501,7 @@ export default function App() {
     const paymentStatus = urlParams.get('payment');
     const paidTrackId = urlParams.get('trackId');
     const returnTaskId = urlParams.get('taskId');
+    const couponParam = urlParams.get('coupon');
 
     const session = loadSession();
 
@@ -1421,6 +1509,20 @@ export default function App() {
       // Payment was completed — restore session and mark track as paid
       const newPaidIds = [...(session.paidTrackIds || [])];
       if (!newPaidIds.includes(paidTrackId)) newPaidIds.push(paidTrackId);
+
+      // Claim coupon if used
+      if (couponParam && couponParam !== 'null') {
+        claimCoupon(couponParam);
+        setPaidWithCoupon(couponParam);
+      }
+
+      // Generate new coupon as gift
+      generateCoupon().then(result => {
+        if (result.success && result.couponCode) {
+          setGeneratedCoupon(result.couponCode);
+          setShowCouponModal(true);
+        }
+      });
 
       const restored: AppState = {
         ...DEFAULT_STATE,
@@ -1520,6 +1622,7 @@ export default function App() {
 
   const handleLyricsNext = async (title: string, lyrics: string, topic: string) => {
     setState(s => ({ ...s, title, lyrics, topic, isGenerating: true }));
+    startTimer(); // Start 20-minute timer
 
     const genreMap: Record<string, string> = {
       'Rock': 'Rock, Electric Guitar', 'Jazz': 'Jazz, Saxophone, Smooth',
@@ -1584,6 +1687,10 @@ export default function App() {
   const handleReset = () => {
     clearSession();
     setState(DEFAULT_STATE);
+    resetTimer();
+    setShowCouponModal(false);
+    setGeneratedCoupon(null);
+    setPaidWithCoupon(null);
   };
 
   const handleRestoreSession = () => {
@@ -1611,9 +1718,44 @@ export default function App() {
 
   const handlePaymentModalClose = () => setPayingTrack(null);
 
+  const handleCopyCoupon = () => {
+    if (generatedCoupon) {
+      navigator.clipboard.writeText(generatedCoupon);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background selection:bg-secondary/30">
       <Navbar />
+
+      {/* Timer Display */}
+      {timerExpires && state.step !== 'landing' && (
+        <ExpirationTimer expiresAt={timerExpires} onExpire={handleTimerExpire} />
+      )}
+
+      {/* Exit Confirm Modal */}
+      <AnimatePresence>
+        {showExitModal && (
+          <ExitConfirmModal
+            onContinue={handleContinueFromModal}
+            onLeave={handleLeaveFromModal}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Coupon Modal (after purchase) */}
+      <AnimatePresence>
+        {showCouponModal && generatedCoupon && (
+          <CouponModal
+            couponCode={generatedCoupon}
+            onClose={() => setShowCouponModal(false)}
+            onCopy={handleCopyCoupon}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Social Counter */}
+      <SocialCounter />
 
       {/* Session Recovery Banner */}
       <AnimatePresence>
@@ -1651,7 +1793,13 @@ export default function App() {
             />
           )}
           {state.step === 'result' && (
-            <ResultStep state={state} onReset={handleReset} onPay={handlePayTrack} />
+            <ResultStep 
+              state={state} 
+              onReset={handleReset} 
+              onPay={handlePayTrack}
+              timerExpires={timerExpires}
+              onTimerExpire={handleTimerExpire}
+            />
           )}
         </AnimatePresence>
       </main>
